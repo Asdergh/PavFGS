@@ -1,0 +1,17 @@
+WH:
+- 128
+- 128
+epochs: 10
+epochs_per_log: 10
+gs_terms_list:
+- rigid_loss
+- rot_loss
+- iso_loss
+learning_rate: 0.01
+log_features_list:
+- asal_map
+- g_splats
+- audo_features
+- visual_features
+- fused_features
+points_n: 10

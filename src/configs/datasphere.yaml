@@ -1,0 +1,11 @@
+cloud-instance-types:
+- g1.1
+cmd: python3 -m src.train --hyper-params ${HYPER_PARAMS} --train-log ${TRAIN_LOG}
+desc: Train PavFGS model
+env:
+  python: auto
+inputs:
+- src/configs/train_config.yaml: HYPER_PARAMS
+name: train_scripts
+outputs:
+- train_log.zip: TRAIN_LOG
