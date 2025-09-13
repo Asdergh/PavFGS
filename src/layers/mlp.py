@@ -16,7 +16,7 @@ class Mlp(nn.Module):
         
         super().__init__()
         hiden_features = (hiden_features if hiden_features is not None else in_features)
-        out_features = (out_features if out_features is not None else in_features)
+        out_features = (out_features if out_features is not None else hiden_features)
 
         self.fc1 = nn.Linear(in_features, hiden_features)
         self.fc2 = nn.Linear(hiden_features, out_features) 

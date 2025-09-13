@@ -56,6 +56,7 @@ class AmfBlock(nn.Module):
         self.gap = Gap()
 
     
+  
     def forward(self, input: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
 
         x, Af = input
@@ -64,7 +65,7 @@ class AmfBlock(nn.Module):
         for f_type in self.f_order:
             f = self.blocks[f_type](x)
             if f_type == "audio":
-                f += Af.view(1, *Af.size())
+                f += Af.view(*Af.size(), 1, 1, 1)
 
             features.update({f_type: f})
         

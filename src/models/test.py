@@ -57,7 +57,6 @@ def run_test(
     ])
     ViewMat = torch.eye(4)
     ViewMat[2, -1] = 8.0
-    losses = []
     for idx in range(n_epochs):
         
         optim.zero_grad()
