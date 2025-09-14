@@ -66,11 +66,8 @@ class AudioEncoder(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.mel(x).unsqueeze(dim=1)
-        print(x.size())
         x = self.resample(x)
-        print(x.size())
         x = self.ft(x)
-        print(x.size())
         x = self.fcn(x)
         return x
 

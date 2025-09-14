@@ -1,9 +1,6 @@
 import torch 
 import torch.nn as nn
 
-
-
-
 class Gap(nn.Module): 
 
     def __init__(self) -> None:
@@ -25,11 +22,6 @@ class Gap(nn.Module):
         
         return torch.cat(features, dim=0).view(B, C)
 
-if __name__ == "__main__":
-        
-    test = torch.normal(0, 1, (1, 32, 64, 64, 64))
-    gap = Gap()
-    test_out = gap(test)
-    print(test_out.size())
+
 
             

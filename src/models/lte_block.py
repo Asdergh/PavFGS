@@ -52,16 +52,4 @@ class LTEBlock(nn.Module):
 
 
 
-if __name__ == "__main__":
-
-    D, W, H = (64, 64, 64)
-    test = torch.normal(0, 1, (1, 1, D, W, H))
-    block = LTEBlock(
-        in_features=1,
-        out_features=3,
-        lt_size=64
-    )
-    out = block(test)
-    print(out.size())
-
         

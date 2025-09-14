@@ -110,26 +110,3 @@ class FilterBlock(nn.Module):
         return x
         
 
-
-if __name__ == "__main__":
-    
-    from pyvista import Plotter
-    
-    W, H, D = (128, 128, 128)
-    scene = Plotter(shape=(1, 2))
-    scene.background_color = [0, 0, 0]
-    test = torch.normal(0, 1, (1, 1, W, H, D))
-    print(test.size(), test.min(), test.max())
-    filter_block = FilterBlock(
-        in_features=1, 
-        out_features=1,
-        filt_depth=4
-    )
-    
-    test_out = filter_block(test).detach().numpy()
-    print(test_out.shape)
-    scene.add_volume(test_out.squeeze(), cmap="turbo", opacity="sigmoid_6")
-    scene.subplot(0, 1)
-    scene.add_volume(test.view(W, H, D).numpy(), cmap="turbo", opacity="sigmoid_6")
-    scene.show()
-        

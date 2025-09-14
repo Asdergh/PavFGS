@@ -22,8 +22,7 @@ class TfSal(nn.Module):
         in_features: int,
         hiden_features: Optional[int]=32,
         out_features: Optional[int]=1,
-        features_path_size: Optional[Tuple[int]]=(32, 32, 32),
-        total_resamplings: Optional[int]=4,
+        features_patch_size: Optional[int]=16,
         return_hiden_maps: Optional[bool]=False,
         hiden_act_fn: Callable[..., nn.Module]=nn.ReLU,
         lte_act_fn: Callable[..., nn.Module]=nn.ReLU,
@@ -38,7 +37,6 @@ class TfSal(nn.Module):
         self.rdm = return_hiden_maps
 
         gen_v_list = [
-            hiden_features, (-1, -1, -1),
             hiden_features, (-1, -1, -1),
             hiden_features, (-1, -1, -1),
             hiden_features, (-1, -1, -1),
@@ -59,7 +57,6 @@ class TfSal(nn.Module):
             return_scales=True,
             space_dim="3d"
         )
-        gen_v_list = gen_v_list[1:]
 
         self.hiden_blocks = []
         for idx in range(0, 7, 2):
@@ -100,7 +97,7 @@ class TfSal(nn.Module):
             LTEBlock(
                 in_features=hiden_features,
                 out_features=hiden_features,
-                lt_size=32,
+                lt_size=features_patch_size,
                 fcn_act=lte_act_fn,
             )
             for _ in range(4)
@@ -131,12 +128,11 @@ class TfSal(nn.Module):
         dense_maps = []
         hiden_features = []
         for idx, scale_f in enumerate(scale_features):
-            
             fx = self.hiden_blocks[idx](scale_f)
             if hiden_features:
                 for hf in hiden_features:
                     fx += hf
-            
+
             lte_fx = self.lte_blocks[idx](fx)
             amf_fx = self.amf_blocks[idx]([lte_fx, Au])
             dense_map = self.decoding_blocks[idx](amf_fx)
@@ -153,22 +149,7 @@ class TfSal(nn.Module):
         
             
 
-             
         
-
-        
-if __name__ == "__main__":
-    
-    import librosa as lib
-
-    path = "/home/ram/Downloads/file_example_WAV_1MG.wav"
-    signal = torch.Tensor(lib.load(path)[0]).unsqueeze(dim=0)
-    print(signal.size())
-    noise = torch.normal(0, 1, (1, 3, 128, 128, 128))
-    model = TfSal(3, return_hiden_maps=False)
-    
-    out = model([noise, signal])
-    print(out.size())
     
 
     

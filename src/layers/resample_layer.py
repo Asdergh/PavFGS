@@ -41,7 +41,6 @@ class ResampleLayer(nn.Module):
                     ))
                 
                 elif isinstance(v, int):
-                    print(v)
                     block = nn.Sequential(
                         nn.Conv2d(in_f, v, (3, 3), 1, 1),
                         hiden_act(),
@@ -78,7 +77,7 @@ class ResampleLayer(nn.Module):
             x = self.patch_sample(x)
 
         for idx, block in enumerate(self.blocks):
-            
+
             x = block(x)
             if self.res:
                 if (idx != 0 and
@@ -94,22 +93,10 @@ class ResampleLayer(nn.Module):
             features += [x, ]
         
         if self.rs:
-            return sc_features[::-1]
+            return sc_features
         
         return x
 
 
-
-if __name__ == "__main__":
-
-    model = ResampleLayer(3, return_scales=True, feature_values=[
-        128, (-1, -1),
-        64, (-1, -1),
-        32, (-1, -1)
-    ])
-    test = torch.normal(0, 1, (1, 3, 256, 256))
-    out = model(test)
-    for f in out:
-        print(f.size())
 
 

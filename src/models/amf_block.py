@@ -88,22 +88,6 @@ class AmfBlock(nn.Module):
         return Fl + Fg + Fau
         
 
-
-if __name__ == "__main__":
-
-    test_vis = torch.normal(0, 1, (1, 32, 64, 64, 64))
-    test_audio = torch.normal(0, 1, (64, 64, 64))
-    block = AmfBlock(
-        in_features=32,
-        out_features=3,
-        filt_depth=2
-    )
-    
-    # conv = nn.Conv3d(32, 1, (3, 3, 3), (1, 1, 1), padding=(1, 1, 1))
-    # test_out = conv(test_vis)
-    test_out = block([test_vis, test_audio])
-    print(test_out.size())
-        
         
         
 
