@@ -1,5 +1,6 @@
 venv/
 meta/
+.git-backup/
 *.zip
 # python bytecode
 *.pyc
