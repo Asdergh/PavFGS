@@ -6,4 +6,5 @@ meta/
 *.pyc
 *.pyo
 *.pyd
+*.gif
 __pycache__/
