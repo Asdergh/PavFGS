@@ -69,7 +69,7 @@ def eval_sh(deg, sh, dirs):
     """
     assert deg <= 4 and deg >= 0
     coeff = (deg + 1) ** 2
-    assert sh.shape[-1] >= coeff
+    assert sh.shape[-1] >= coeff, (f"coeff: {coeff}, sh: {sh.size()}")
 
     result = C0 * sh[..., 0]
     if deg > 0:
@@ -109,6 +109,7 @@ def eval_sh(deg, sh, dirs):
                             C4[6] * (xx - yy) * (7 * zz - 1) * sh[..., 22] +
                             C4[7] * xz * (xx - 3 * yy) * sh[..., 23] +
                             C4[8] * (xx * (xx - 3 * yy) - yy * (3 * xx - yy)) * sh[..., 24])
+
     return result
 
 def RGB2SH(rgb):
