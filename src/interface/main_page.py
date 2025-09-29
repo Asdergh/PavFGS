@@ -1,5 +1,6 @@
 import streamlit as st
 from streamlit_stl import stl_from_text
+import tempfile
 import time
 import os 
 import base64
@@ -61,52 +62,156 @@ st.html("""
     </div>
 """)
 
-
-GLB_PATH = r"C:\projects\python\PavFGS\src\interface\creepy_scarecrow__horror_stylized.glb"
-
-if not os.path.exists(GLB_PATH):
-    st.error(f"❌ Файл не найден: {GLB_PATH}")
-    st.stop()
-
-with open(GLB_PATH, "rb") as f:
-    glb_data = f.read()
-    glb_base64 = base64.b64encode(glb_data).decode("utf-8")
-
-html_code = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <script type="module" src="https://unpkg.com/@google/model-viewer@^2.0.0/dist/model-viewer.min.js"></script>
-</head>
-<body>
-    <model-viewer 
-        src="data:model/gltf-binary;base64,{glb_base64}"
-        alt="3D Model"
-        auto-rotate
-        camera-controls
-        style="width: 100%; height: 600px; background-color: #1e1e1e;"
-        ar
-        animation-name="All"
-        autoplay
-    >
-        <div class="progress-bar" slot="progress-bar">
-            <div class="update-bar"></div>
-        </div>
-    </model-viewer>
+def create_viewer_html(ply_file_path=None):
+    """Создает HTML с встроенным Gaussian Splatting viewer"""
     
-    <script>
-        console.log('Model viewer loaded');
-    </script>
-</body>
-</html>
-"""
-col1, col2, col3, col4 = st.columns(4)
+    with open('C:\\projects\\python\\PavFGS\\src\\interface\\splat\\main.js', 'r', encoding='utf-8') as f:
+        main_js = f.read()
+    
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>3D Gaussian Splatting</title>
+        <style>
+            body, html {{
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background: #000;
+            }}
+            #canvas {{
+                width: 100vw;
+                height: 100vh;
+                display: block;
+            }}
+            #ui {{
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                color: white;
+                font-family: Arial, sans-serif;
+                background: rgba(0,0,0,0.5);
+                padding: 10px;
+                border-radius: 5px;
+            }}
+            #spinner {{
+                display: none;
+                color: #fff;
+            }}
+            #progress {{
+                width: 200px;
+                height: 4px;
+                background: #333;
+                margin: 5px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas"></canvas>
+        <div id="ui">
+            <div id="fps">0 fps</div>
+            <div id="camid"></div>
+            <div id="progress"></div>
+            <div id="spinner">Loading...</div>
+            <div id="message"></div>
+        </div>
+        
+        <script>
+            {main_js}
+        </script>
+    </body>
+    </html>
+    """
+    
+    return html_template
 
-with col1:
-    st.components.v1.html(html_code, height=620)
-with col2:
-    st.components.v1.html(html_code, height=620)
-with col3:
-    st.components.v1.html(html_code, height=620)
-with col4:
-    st.components.v1.html(html_code, height=620)
+
+def main():
+    
+    
+    # Загрузка PLY файла
+    uploaded_file = st.file_uploader("Загрузите PLY файл", type=['ply'])
+    
+    if uploaded_file:
+        # Сохраняем файл временно
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.ply') as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            ply_path = tmp_file.name
+        
+        st.success(f"Файл {uploaded_file.name} загружен!")
+        
+        # Создаем HTML с viewer
+        html_content = create_viewer_html()
+        
+        # Показываем в Streamlit
+        st.components.v1.html(html_content, height=600)
+        
+        # Инструкция
+        with st.expander("ℹ️ Управление камерой"):
+            st.markdown("""
+            ### Управление:
+            - **ЛКМ + перемещение**: Вращение камеры
+            - **ПКМ + перемещение**: Перемещение камеры  
+            - **Колесо мыши**: Приближение/отдаление
+            - **WASD**: Перемещение камеры
+            - **Цифры 0-9**: Переключение между предустановленными камерами
+            - **+/-**: Следующая/предыдущая камера
+            - **P**: Автоматический пролет (carousel)
+            - **V**: Сохранить текущий вид в URL
+            """)
+        
+        # Очистка
+        os.unlink(ply_path)
+
+if __name__ == "__main__":
+    main()
+
+# GLB_PATH = r"C:\projects\python\PavFGS\src\interface\creepy_scarecrow__horror_stylized.glb"
+
+# if not os.path.exists(GLB_PATH):
+#     st.error(f"❌ Файл не найден: {GLB_PATH}")
+#     st.stop()
+
+# with open(GLB_PATH, "rb") as f:
+#     glb_data = f.read()
+#     glb_base64 = base64.b64encode(glb_data).decode("utf-8")
+
+# html_code = f"""
+# <!DOCTYPE html>
+# <html>
+# <head>
+#     <script type="module" src="https://unpkg.com/@google/model-viewer@^2.0.0/dist/model-viewer.min.js"></script>
+# </head>
+# <body>
+#     <model-viewer 
+#         src="data:model/gltf-binary;base64,{glb_base64}"
+#         alt="3D Model"
+#         auto-rotate
+#         camera-controls
+#         style="width: 100%; height: 600px; background-color: #1e1e1e;"
+#         ar
+#         animation-name="All"
+#         autoplay
+#     >
+#         <div class="progress-bar" slot="progress-bar">
+#             <div class="update-bar"></div>
+#         </div>
+#     </model-viewer>
+    
+#     <script>
+#         console.log('Model viewer loaded');
+#     </script>
+# </body>
+# </html>
+# """
+# col1, col2, col3, col4 = st.columns(4)
+
+# with col1:
+#     st.components.v1.html(html_code, height=620)
+# with col2:
+#     st.components.v1.html(html_code, height=620)
+# with col3:
+#     st.components.v1.html(html_code, height=620)
+# with col4:
+#     st.components.v1.html(html_code, height=620)

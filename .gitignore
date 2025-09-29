@@ -7,3 +7,4 @@ meta/
 *.pyo
 *.pyd
 __pycache__/
+.glb
