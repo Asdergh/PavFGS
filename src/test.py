@@ -23,18 +23,22 @@ W, H = (112, 112)
 POINTS_N = W * H
 NOISE_DIM = 128
 EPOCHS_N = 1000
+DENSIFY_ITER = 300
+DENSIFY_GRAD_MAX = 0.0002
+DENSIFY_OPACITY_MIN = 0.005
+DENSIFY_SCENE_EXTENT = 1.3
 
 gs = GaussianModel(device=device)
 
 ViewMat = torch.eye(4).to(device)
 ViewMat[3, -1] = 500.0
 K = torch.Tensor([
-    [51.0, 0.0, 56.5],
-    [0.0, 51.0, 56.5],
+    [1.0, 0.0, 56.0],
+    [0.0, 1.0, 56.0],
     [0.0, 0.0, 1]
 ]).to(device)
 
-gt_img_path = "/media/test/T7/alimi_img.png"
+gt_img_path = "/media/test/T7/mmpr_dataset_1/mav0/cam0/data/000001735217372000.png"
 gt_img = Image.open(gt_img_path)
 gt_img = Fv.pil_to_tensor(gt_img) / 255.0
 gt_img = Fv.resize(gt_img, (W, H)).to(device)
@@ -102,7 +106,6 @@ with tqdm(
 ) as pbar:
     for idx in range(EPOCHS_N):
 
-        gs.optimizer.zero_grad()
         gs_items = gs.get_items()
         rendered_image = rasterization(
             **gs_items,
@@ -119,7 +122,18 @@ with tqdm(
         loss = L1_term + Dssim_term
         loss.backward()
 
+        with torch.no_grad():
+            xyz_grad = gs._xyz.grad.clone()
+            gs.accumulate_grads(xyz_grad)
+            if idx % DENSIFY_ITER == 0:
+                gs.densify_and_prune(
+                    max_grad=DENSIFY_GRAD_MAX,
+                    min_opacity=DENSIFY_OPACITY_MIN,
+                    scene_extent=DENSIFY_SCENE_EXTENT
+                )
+
         gs.optimizer.step()
+        gs.optimizer.zero_grad()
         losses.append(loss.item())
 
         

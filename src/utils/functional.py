@@ -13,7 +13,7 @@ from PIL import Image
 from torch.nn import functional as F
 from torchvision.transforms import functional as Fv
     
-    
+
 
 
 def _gauss_kernel(kernel_size: int) -> Tuple:
