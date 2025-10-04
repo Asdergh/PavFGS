@@ -13,7 +13,7 @@ from typing import (
     NamedTuple
 )
 import matplotlib.cm as cm
-from src.scene.sh_utils import eval_sh
+from utils.sh_utils import eval_sh
 
 
 class GaussinAttributes(NamedTuple):
@@ -241,18 +241,21 @@ class GaussianModel:
             if stored_state is not None:
                 stored_state["exp_avg"] = torch.cat([
                     stored_state["exp_avg"],
-                    torch.rand(tensor2add.size())
+                    torch.rand(tensor2add.size()).to(self.device)
                 ], dim=0)
                 stored_state["exp_avg_sq"] = torch.cat([
                     stored_state["exp_avg_sq"],
-                    torch.rand(tensor2add.size())
+                    torch.rand(tensor2add.size()).to(self.device)
                 ])
+
+                del self.optimizer.state[group["params"][0]]
+                group["params"][0] = nn.Parameter(torch.cat([group["params"][0], tensor2add], dim=0).requires_grad_(True))
+                optimizable_tensors[group["name"]] = group["params"][0]
+                self.optimizer.state[group["params"][0]] = stored_state
             
-                del self.optimizer.state[group["name"]]
-                self.optimizer.state[group["name"]] = stored_state
-            
-            group["params"][0] = nn.Parameter(torch.cat([group["params"][0], tensor2add], dim=0).requires_grad_(True))
-            optimizable_tensors[group["name"]] = group["params"][0]
+            else:
+                group["params"][0] = nn.Parameter(torch.cat([group["params"][0], tensor2add], dim=0).requires_grad_(True))
+                optimizable_tensors[group["name"]] = group["params"][0]
             
         return optimizable_tensors
             
@@ -265,10 +268,11 @@ class GaussianModel:
                 stored_state["exp_avg"] = stored_state["exp_avg"][mask]
                 stored_state["exp_avg_sq"] = stored_state["exp_avg_sq"][mask]
         
-                del self.optimizer.state[group["name"]]
+                del self.optimizer.state[group["params"][0]]
                 group["params"][0] = nn.Parameter(group["params"][0][mask].requires_grad_(True))
                 optimizable_tensors[group["name"]] = group["params"][0]
-                self.optimizer.state[group["name"]] = stored_state
+                print(stored_state["exp_avg"].size(), stored_state["exp_avg_sq"].size())
+                self.optimizer.state[group["params"][0]] = stored_state
                 
             else:
                group["params"][0] = nn.Parameter(group["params"][0].requires_grad_(True))
@@ -279,6 +283,7 @@ class GaussianModel:
     def prune_points(self, mask: torch.Tensor) -> None:
 
         valid_mask = ~mask
+        # print(valid_mask.sum(), mask.sum())
         optimizable_tensors = self._prune_optimizer(valid_mask)
         attrs = GaussinAttributes(**optimizable_tensors)
         self.reset_model_attrs(attrs)
@@ -308,6 +313,7 @@ class GaussianModel:
         self.reset_model_attrs(attrs)
         
         self.xyz_grad_accum = torch.rand(self._xyz.size()[0]).to(self.device)
+        # print(self.xyz_grad_accum.size(), self._xyz.size())
         self.denom = torch.rand(self._xyz.size()[0]).to(self.device)
         
         
@@ -382,11 +388,21 @@ class GaussianModel:
     ):
         
         grads = self.xyz_grad_accum / self.denom
+        # print(grads.min(), grads.mean(), grads.max())
         self.densify_and_clone(grads, max_grad, scene_extent)
         self.densify_and_split(grads, max_grad, scene_extent)
         
-        prune_mask = torch.where(self._opacity < min_opacity, True, False)
+        prune_mask = torch.where(self._opacity < min_opacity, True, False).squeeze()
+        # print(prune_mask.size())
+        # print(prune_mask.sum())
+        # print(self._xyz.size())
         self.prune_points(prune_mask)
+        # print(prune_mask.size(), self.xyz_grad_accum.size())
+        self.xyz_grad_accum = self.xyz_grad_accum[prune_mask]
+        self.denom = self.denom[prune_mask]
+        # print(self._xyz.size())
+
+        # print(self._xyz.size())
 
     
     def accumulate_grads(self, xyz_grad: torch.Tensor) -> None:
@@ -396,8 +412,15 @@ class GaussianModel:
             self.xyz_grad_accum = torch.norm(xyz_grad, dim=-1)
             self.denom = torch.rand(xyz_grad.size()[0]).to(self.device)
 
-        self.xyz_grad_accum += torch.norm(xyz_grad, dim=-1)
-        self.denom += 1
+       
+        try:
+            self.xyz_grad_accum += torch.norm(xyz_grad, dim=-1)
+            self.denom += 1
+        
+        except BaseException:
+            # print(self.xyz_grad_accum.size(), xyz_grad.size())
+            # print(self._xyz.size())
+            pass
     
     
 if __name__ == "__main__":

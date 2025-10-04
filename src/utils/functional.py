@@ -16,7 +16,7 @@ from torchvision.transforms import functional as Fv
 
 
 
-def _gauss_kernel(kernel_size: int) -> Tuple:
+def gauss_kernel(kernel_size: int) -> Tuple:
 
     labels = np.linspace(-1, 1, kernel_size)
     exp = np.exp(labels ** 2 / 2)
@@ -25,7 +25,7 @@ def _gauss_kernel(kernel_size: int) -> Tuple:
 
     return torch.Tensor(GoP)
 
-def _sobel_kernel(kernel_size: int, return_full: Optional[bool]=False) -> Tuple:
+def sobel_kernel(kernel_size: int, return_full: Optional[bool]=False) -> Tuple:
 
     b = []
     for i in range(kernel_size):
@@ -60,12 +60,20 @@ def ssim(
     L: Optional[float]=255.0,
     kernel_size: Optional[int]=3,
     get_ssim_map: Optional[bool]=False,
-    device: Optional[str]="cpu"
+    device: Optional[str]="cpu",
+    kernel_type: Optional[str]="gauss" #[gauss, sobel]
 ) -> Union[Tuple, torch.Tensor]:
     
 
-
-    GoP = _gauss_kernel(kernel_size=kernel_size)
+    if kernel_type == "gauss":
+        GoP = gauss_kernel(kernel_size)
+    
+    elif kernel_type == "sobel":
+        GoP = sobel_kernel(kernel_size, return_full=True)
+    
+    else:
+        raise ValueError("unknown kernel_type!!")
+    
     GoP = GoP.view(1, 1, *GoP.size())
     GoP = GoP.repeat(1, 3, 1, 1).to(device)
 
@@ -95,33 +103,60 @@ def ssim(
 
     return ssim_score
 
-     
+
+def build_rotation(r):
+
+    norm = torch.sqrt(r[:,0]*r[:,0] + r[:,1]*r[:,1] + r[:,2]*r[:,2] + r[:,3]*r[:,3])
+    q = r / norm[:, None]
+    R = torch.zeros((q.size(0), 3, 3), device='cuda')
+
+    r = q[:, 0]
+    x = q[:, 1]
+    y = q[:, 2]
+    z = q[:, 3]
+
+    R[:, 0, 0] = 1 - 2 * (y*y + z*z)
+    R[:, 0, 1] = 2 * (x*y - r*z)
+    R[:, 0, 2] = 2 * (x*z + r*y)
+    R[:, 1, 0] = 2 * (x*y + r*z)
+    R[:, 1, 1] = 1 - 2 * (x*x + z*z)
+    R[:, 1, 2] = 2 * (y*z - r*x)
+    R[:, 2, 0] = 2 * (x*z - r*y)
+    R[:, 2, 1] = 2 * (y*z + r*x)
+    R[:, 2, 2] = 1 - 2 * (x*x + y*y)
+    return R
+
+def build_scaling_rotation(s, r):
+
+    L = torch.zeros((s.shape[0], 3, 3), dtype=torch.float, device="cuda")
+    R = build_rotation(r)
+
+    L[:,0,0] = s[:,0]
+    L[:,1,1] = s[:,1]
+    L[:,2,2] = s[:,2]
+
+    L = R @ L
+    return L
 
 
-# W, H = (128, 128)
-# img1 = Image.open("/media/test/T7/test_img2.png")
-# img1 = Fv.pil_to_tensor(img1)
-# img1 = Fv.resize(img1, (W, H)).unsqueeze(dim=0).to(torch.float32)
+def strip_lowerdiag(L):
+    uncertainty = torch.zeros((L.shape[0], 6), dtype=torch.float, device="cuda")
 
-# img2 = Image.open("/media/test/T7/test_img2.png")
-# img2 = Fv.pil_to_tensor(img2)
-# img2 = Fv.resize(img2, (W, H)).unsqueeze(dim=0).to(torch.float32)
+    uncertainty[:, 0] = L[:, 0, 0]
+    uncertainty[:, 1] = L[:, 0, 1]
+    uncertainty[:, 2] = L[:, 0, 2]
+    uncertainty[:, 3] = L[:, 1, 1]
+    uncertainty[:, 4] = L[:, 1, 2]
+    uncertainty[:, 5] = L[:, 2, 2]
+    return uncertainty
 
-# score, map = ssim(
-#     Img1=img1,
-#     Img2=img2,
-#     get_ssim_map=True,
-#     kernel_size=3
-# )
-# print(map.size())
-# print(score)
-# _, axis = plt.subplots(ncols=3)
-# axis[0].imshow(img1.squeeze().permute(1, 2, 0) / 255.0)
-# axis[1].imshow(img2.squeeze().permute(1, 2, 0) / 255.0)
-# axis[2].imshow(map, cmap="turbo")
+def strip_symmetric(sym):
+    return strip_lowerdiag(sym)
+    
 
+def inverse_sigmoid(x):
+    return torch.log(x/(1-x))
 
-# plt.show()
 
 
     

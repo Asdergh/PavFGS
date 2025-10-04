@@ -5,7 +5,7 @@ import cv2
 
 from pathlib import Path
 from moviepy import VideoFileClip
-from src.utils.data import read_avi
+from utils.data import read_avi
 from tqdm import tqdm
 from typing import (
     Optional,
