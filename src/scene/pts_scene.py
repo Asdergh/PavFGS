@@ -8,7 +8,8 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 from typing import (
     Union,
     Optional,
-    List
+    List,
+    Dict
 )
 from open3d.geometry import (
     PointCloud,
@@ -20,9 +21,10 @@ from torchvision.transforms import functional as Fv
 from torchvision.io import read_video
 from src.submodules import VGGT
 from open3d.io import write_point_cloud
+from scipy.spatial.transform import Rotation as R
 
 
-class BasicPCD:
+class BasicPointCloudScene:
 
     def __init__(
         self, 
@@ -31,9 +33,15 @@ class BasicPCD:
         vggt_weights: Optional[str]=None,
         base_rotation: Optional[np.ndarray]=None,
         base_translation: Optional[np.ndarray]=None,
+        base_K: Optional[np.ndarray]=np.array([
+            [5.0, 0.0, 56.0],
+            [0.0, 5.0, 56.0],
+            [0.0, 0.0, 1.0]
+        ])
     ) -> None:
 
         self.w, self.h = (width, height)
+        self.K = base_K
         self.pts = torch.empty(0)
         self.normals = torch.empty(0)
         self.colors = torch.empty(0)     
@@ -69,6 +77,49 @@ class BasicPCD:
 
         return (prune_points, prune_colors)
     
+    def _handle_pose_encs(self, t, quats) -> torch.Tensor:
+        
+        viewmats = torch.zeros(t.size()[0], 4, 4)
+        for idx in range(t.size()[0]):
+
+            tmp_t = t[idx, :]
+            quat = quats[idx, :].numpy()
+            Rmat = torch.Tensor(R.from_quat(quat).as_matrix())
+            viewmats[idx, :-1, -1] = tmp_t
+            viewmats[idx, :3, :3] = Rmat
+        
+        return viewmats
+            
+    def _handle_frames_strack(
+        self, 
+        pts: torch.Tensor, 
+        inputs: torch.Tensor, 
+        search_param: Union[KDTreeSearchParamHybrid, KDTreeSearchParamKNN] ,
+        batch_idx: Optional[int]=0,
+    ) -> PointCloud:
+
+        points_ = []
+        colors_ = []
+        for frame_idx in range(inputs.size()[1]):
+
+            points = pts[batch_idx, frame_idx, ...]
+            colors = inputs[batch_idx, frame_idx, ...]
+            
+            prune_points, prune_colors = self._vggt2pcd(points, colors)
+            points_.append(prune_points)
+            colors_.append(prune_colors)
+        
+        points_ = np.vstack(points_)
+        colors_ = np.vstack(colors_)
+
+        pcd = PointCloud()
+        pcd.points = vec(points_)
+        pcd.colors = vec(colors_)
+        pcd.estimate_normals(search_param)
+
+        return pcd
+
+
     def create_from_tensor(
         self, 
         inputs: torch.Tensor,
@@ -78,6 +129,8 @@ class BasicPCD:
     ) -> None:
 
         self.pcds = []
+        self.gt_imgs = []
+        self.viewmats = []
         inputs = Fv.resize(inputs, (self.w, self.h))
         if isinstance(search_param, str):
             if search_param == "knn":
@@ -87,45 +140,36 @@ class BasicPCD:
                 search_param = KDTreeSearchParamHybrid(radius, k_nns)
 
         if len(inputs.size()) == 5:
-            vggt_item_ = self._vggt(inputs)
+            with torch.no_grad():
+                vggt_item_ = self._vggt(inputs)
             for batch_idx in range(inputs.size()[0]):
-                points_ = []
-                colors_ = []
-                for frame_idx in range(inputs.size()[1]):
-
-                    points = vggt_item_["world_points"][batch_idx, frame_idx, ...]
-                    colors = inputs[batch_idx, frame_idx, ...]
-                    
-                    prune_points, prune_colors = self._vggt2pcd(points, colors)
-                    points_.append(prune_points)
-                    colors_.append(prune_colors)
-                
-                points_ = np.vstack(points_)
-                colors_ = np.vstack(colors_)
-                pcd = PointCloud()
-                pcd.points = vec(points_)
-                pcd.colors = vec(colors_)
-                pcd.estimate_normals(search_param)
+                pcd = self._handle_frames_strack(
+                    inputs=inputs,
+                    pts=vggt_item_["world_points"],
+                    search_param=search_param,
+                    batch_idx=batch_idx
+                )
 
                 self.pcds.append(pcd)
+                self.gt_imgs.append(inputs[batch_idx, ...])
+
+                t, quats = vggt_item_["pose_enc"][batch_idx, :, :-2].split([3, 4], dim=-1)
+                viewmats = self._handle_pose_encs(t, quats)
+                self.viewmats.append(viewmats)
+
         else:
             vggt_item_ = self._vggt(inputs.unsqueeze(dim=0))
-            points_ = []
-            colors_ = []
-            for frame_idx in range(inputs.size()[1]):
-                points = vggt_item_["world_points"][frame_idx, ...]
-                colors = inputs[frame_idx, ...]
-                prune_points, prune_colors = self._vggt2pcd(points, colors)
-                points_.append(prune_points)
-                colors_.append(prune_colors)
-            
-            points_ = np.vstack(points_)
-            colors_ = np.vstack(colors_)
-            pcd = PointCloud()
-            pcd.points = vec(points_)
-            pcd.colors = vec(colors_)
-            pcd.estimate_normals(search_param)
+            pcd = self._handle_frames_strack(
+                inputs=inputs,
+                pts=vggt_item_["world_points"],
+                search_param=search_param
+            )
             self.pcds = [pcd]
+            self.gt_imsg = [inputs.squeeze()]
+            
+            t, quats = vggt_item_["pose_enc"][0, :, :-2].split([3, 4], dim=-1)
+            viewmats = self._handle_pose_encs(t, quats)
+            self.viewmats = [viewmats]
 
             
    
@@ -150,9 +194,6 @@ class BasicPCD:
         batches_n = len(paths)
         frames_ = torch.zeros(batches_n, frames_n, 3, self.w, self.h)
         for clip_idx, clip in enumerate(clips):
-            # print(clip)
-            # video_tensor, _, _ = read_video(clip)
-            # print(video_tensor.size())
             frames = clip.iter_frames(fps=fps)
             for frame_idx, frame in enumerate(frames):
 
@@ -217,32 +258,47 @@ class BasicPCD:
         
     def __getitem__(self, idx: int) -> dict:
 
-        pcd = self.pcds[idx]
+        if idx > len(self):
+            pcd = self.pcd[len(self) - 1]
+            gt_imgs = self.gt_imgs[len(self) - 1]
+            viewmats = self.viewmats[len(self) - 1]
+        
+        else:
+            pcd = self.pcds[idx]
+            gt_imgs = self.gt_imgs[idx]
+            viewmats = self.viewmats[idx]
+
         bbox = pcd.get_oriented_bounding_box()
-        print(np.asarray(pcd.get_axis_aligned_bounding_box()))
         return {
             "pts": np.asarray(pcd.points),
             "colors": np.asarray(pcd.colors),
             "normals": np.asarray(pcd.normals),
             "bbox_center": np.asarray(bbox.center),
-            "bbox_estent": np.asarray(bbox.extent),
-            "bbox_rotation": R.from_matrix(bbox.R).as_quat()
+            "bbox_extent": np.asarray(bbox.extent),
+            "bbox_rotation": R.from_matrix(bbox.R).as_quat(),
+            "gt_imgs": gt_imgs,
+            "viewmats": viewmats
         }
+
+    def __iter__(self):
+        for idx in range(len(self)):
+            yield self[idx]
+
 
 
 
 if __name__ == "__main__":
 
-    from scipy.spatial.transform import Rotation as R
+    
     rot_vec = np.array([1, 0.0, 0.0]) * 90.0
     Rmat = R.from_rotvec(rot_vec, degrees=True).as_matrix()
     # Rmat = None
-    # video = "/media/test/T7/video_test.mp4"
-    video = "/media/test/T7/test_video3.mp4"
+    video1 = "/media/test/T7/video_test.mp4"
+    video2 = "/media/test/T7/test_video3.mp4"
     weights = "/media/test/T7/model.pt"
     
-    pcd = BasicPCD(vggt_weights=weights, base_rotation=Rmat)
-    pcd.create_from_video([video], 2.0)
+    pcd = BasicPointCloudScene(vggt_weights=weights, base_rotation=Rmat)
+    pcd.create_from_video([video1, video2], 2.0)
     # draw_geometries([pcd[0], pcd[1], pcd[2]])
     pcd.save_ply("/media/test/T7/ply_collection")
     pcd.show()

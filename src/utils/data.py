@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Tuple
 )
+from plyfile import PlyElement
 
 
 def read_avi(
@@ -32,3 +33,8 @@ def read_avi(
     sound = np.asarray(audio_clip.to_soundarray()).T.mean(axis=0)
 
     return (imgs, sound)
+
+
+
+
+    

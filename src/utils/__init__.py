@@ -1,8 +1,5 @@
 from .data import read_avi
 from .functional import (
-    gauss_kernel,
-    sobel_kernel,
-    ssim,
     build_rotation,
     build_scaling_rotation,
     strip_symmetric,
@@ -13,6 +10,11 @@ from .sh_utils import (
     eval_sh,
     RGB2SH,
     SH2RGB
+)
+from .losses import (
+    gauss_kernel,
+    sobel_kernel,
+    DSSIMLoss
 )
 
 __all__ = [
@@ -28,4 +30,5 @@ __all__ = [
     "eval_sh",
     "RGB2SH",
     "SH2RGB",
+    "DSSIMLoss"
 ]
