@@ -5,6 +5,11 @@ import time
 import os 
 import base64
 from pathlib import Path
+import plotly.graph_objects as go
+import plotly.express as px
+import numpy as np
+from plyfile import PlyData
+
 
 st.set_page_config(layout="wide", page_title="PavFGS")
 
@@ -62,8 +67,29 @@ st.html("""
     </div>
 """)
 
+def load_ply_file(ply_path):
+    try:
+        plydata = PlyData.read(ply_path)
+        
+        vertices = plydata['vertex']
+        x = vertices['x']
+        y = vertices['y'] 
+        z = vertices['z']
+        
+        try:
+            r = vertices['red'] / 255.0
+            g = vertices['green'] / 255.0
+            b = vertices['blue'] / 255.0
+            colors = np.column_stack([r, g, b])
+        except:
+            colors = z
+        
+        return x, y, z, colors
+    except Exception as e:
+        st.error(f"Ошибка чтения PLY: {e}")
+        return None, None, None, None
+
 def create_viewer_html(ply_file_path=None):
-    """Создает HTML с встроенным Gaussian Splatting viewer"""
     
     with open('C:\\projects\\python\\PavFGS\\src\\interface\\splat\\main.js', 'r', encoding='utf-8') as f:
         main_js = f.read()
@@ -129,25 +155,57 @@ def create_viewer_html(ply_file_path=None):
 
 def main():
     
-    
-    # Загрузка PLY файла
     uploaded_file = st.file_uploader("Загрузите PLY файл", type=['ply'])
     
     if uploaded_file:
-        # Сохраняем файл временно
         with tempfile.NamedTemporaryFile(delete=False, suffix='.ply') as tmp_file:
             tmp_file.write(uploaded_file.getvalue())
             ply_path = tmp_file.name
         
         st.success(f"Файл {uploaded_file.name} загружен!")
         
-        # Создаем HTML с viewer
         html_content = create_viewer_html()
         
-        # Показываем в Streamlit
-        st.components.v1.html(html_content, height=600)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.components.v1.html(html_content, height=600)
+        with col2:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.ply') as tmp_file:
+                tmp_file.write(uploaded_file.getvalue())
+                tmp_path = tmp_file.name
+            
+            x, y, z, colors = load_ply_file(tmp_path)
+            
+            if x is not None:
+                fig = go.Figure(data=[go.Scatter3d(
+                    x=x,
+                    y=y, 
+                    z=z,
+                    mode='markers',
+                    marker=dict(
+                        size=2,
+                        color=colors,
+                        colorscale='Viridis',
+                        opacity=0.8
+                    )
+                )])
+
+                fig.update_layout(
+                    scene=dict(
+                        xaxis_title='X',
+                        yaxis_title='Y',
+                        zaxis_title='Z',
+                        aspectmode='data'
+                    ),
+                    width=800,
+                    height=600,
+                    title="3D Point Cloud"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                st.info(f"**Информация:** {len(x)} точек")
         
-        # Инструкция
         with st.expander("ℹ️ Управление камерой"):
             st.markdown("""
             ### Управление:
@@ -161,7 +219,6 @@ def main():
             - **V**: Сохранить текущий вид в URL
             """)
         
-        # Очистка
         os.unlink(ply_path)
 
 if __name__ == "__main__":
