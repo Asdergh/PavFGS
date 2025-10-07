@@ -98,4 +98,4 @@ class DSSIMLoss(nn.Module):
         if self.get_ssim_map:
             return (ssim_score, SSIM_map)
 
-        return ssim_score
+        return 1.0 - ssim_score

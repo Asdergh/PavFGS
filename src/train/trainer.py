@@ -14,7 +14,8 @@ from src.scene.pts_scene import BasicPointCloudScene
 from torch.optim import (
     Optimizer,
     Adam,
-    AdamW
+    AdamW,
+    SparseAdam
 )
 from typing import (
     Optional,
@@ -32,23 +33,26 @@ from src.utils import (
     DSSIMLoss,
     eval_sh
 )
+from torchvision.io import write_video
 
 
 
 @dataclass
 class Config:
-    epochs_n: Optional[int]=7000
+    epochs_n: Optional[int]=15000
     densification_start: Optional[int]=1000
-    densification_until: Optional[int]=3000
-    densification_interval: Optional[int]=1000
+    densification_until: Optional[int]=10000
+    densification_interval: Optional[int]=100
+    packed: Optional[bool]=True
     xyz_lr: Optional[float]=0.01
     geom_lr: Optional[float]=0.01
     colors_lr: Optional[float]=0.1
     densification_strat: Optional[str]="default" # [default, mcmc]
     scene_idx: Optional[int]=0 # idx of scene from BasicPointcloudScene
     sh_degree: Optional[int]=3 # [1, 2, 3]
+    apply_sh: Optional[bool]=False
     split_gs_optimizers: Optional[bool]=True
-    optim_type: Optional[str]="adam" # [adam, adamw]
+    optim_type: Optional[str]="adam" # [adam, adamw, sparse_adam]
     mse_loss: Optional[bool]=False
     mae_loss: Optional[bool]=False
     dssim_loss: Optional[bool]=False
@@ -56,7 +60,7 @@ class Config:
     mae_coeff: Optional[float]=1.0
     dssim_loss: Optional[float]=1.0
     save_samples: Optional[bool]=True
-    save_ecposhs: Optional[List]=field(default_factory=lambda: [4000, 5000, 6000, 6999])
+    save_ecposhs: Optional[List]=field(default_factory=lambda: [0, 200, 1000, 4000, 5000, 6000, 700, 9000, 11000, 14999])
     log_dir: Optional[str]=None
 
 
@@ -84,18 +88,17 @@ class PavGSTrainer:
                 refine_stop_iter=self.cfg.densification_until,
                 refine_every=self.cfg.densification_interval
             )
+            print(scene_scale)
             self.strat_state = self.strategy.initialize_state(scene_scale)
         
         elif self.cfg.densification_strat.lower() == "mcmc":
-            self.tratagy = MCMCStrategy(
+            self.strategy = MCMCStrategy(
                 refine_start_iter=self.cfg.densification_start,
                 refine_stop_iter=self.cfg.densification_until,
                 refine_every=self.cfg.densification_interval
             )
             self.strat_state = self.strategy.initialize_state()
-        
-        else:
-            raise ValueError("config: densification_strat can only be: [default, mcmc]")
+    
         
     
 
@@ -113,7 +116,8 @@ class PavGSTrainer:
         pts = torch.Tensor(scene_items["pts"])
         quats = torch.rand(pts.size()[0], 4)
         quats[:, -1] = 1.0
-        scales = torch.ones_like(pts)
+        scales = torch.Tensor(scene_items["initial_scales"])
+        print(scales.max())
         opactieis = torch.rand(pts.size()[0], )
 
         colors = torch.zeros(pts.size()[0], (self.cfg.sh_degree + 1) ** 2, 3)
@@ -141,6 +145,13 @@ class PavGSTrainer:
                     n: AdamW([{"params": [p], "lr": l, "name": n}], lr=0.1) 
                     for (n, p, l) in splats_attrs
                 }
+
+            elif self.cfg.optim_type.lower() == "sparse_adam":
+                opt = {
+                    n: SparseAdam([{"params": [p], "lr": l, "name": n}], lr=0.1) 
+                    for (n, p, l) in splats_attrs
+                }
+
             else:
                 raise ValueError("config: optim_type can be only: [Adam, AdamW]")
         
@@ -157,8 +168,14 @@ class PavGSTrainer:
                     for (n, p, l) in splats_attrs
                 ], lr=0.1)
 
+            elif self.cfg.optim_type.lower() == "sparse_adam":
+                opt = SparseAdam([
+                    {"params": [p], "lr": p, "name": n}
+                    for (n, p, l) in splats_attrs
+                ], lr=0.1)    
+            
             else:
-                raise ValueError("config: optim_type can be only: [Adam, AdamW]")
+                raise ValueError("config: optim_type can be only: [Adam, AdamW, Sparse_Adam]")
 
         
 
@@ -199,35 +216,48 @@ class PavGSTrainer:
         ) as pbar:
             for idx in range(self.cfg.epochs_n):
                 
-               
-                rendered_rgb, _, meta = rasterization(
-                    means=self.splats["means"],
-                    quats=self.splats["quats"],
-                    scales=self.splats["scales"],
-                    opacities=self.splats["opacities"],
-                    colors=eval_sh(
+            
+                if self.cfg.apply_sh:
+                   colors = eval_sh(
                         deg=self.cfg.sh_degree,
                         sh=torch.cat([
                             self.splats["sh0"], 
                             self.splats["shN"]
                         ], dim=1).permute(0, 2, 1),
                         dirs=self.splats["means"]
-                    ),
+                    )
+                
+                else:
+                    colors = self.splats["sh0"].squeeze()
+
+                rendered_rgb, _, meta = rasterization(
+                    means=self.splats["means"],
+                    quats=self.splats["quats"],
+                    scales=self.splats["scales"],
+                    opacities=self.splats["opacities"],
+                    colors=colors,
                     width=self.base_scene.w, height=self.base_scene.h,
                     viewmats=self.viewmats,
-                    Ks=self.Ks
+                    Ks=self.Ks,
+                    absgrad=(
+                        self.strategy.absgrad
+                        if isinstance(self.strategy, DefaultStrategy)
+                        else None
+                    ),
+                    packed=self.cfg.packed
                 )
-                # meta["radii"] = meta["radii"].unsqueeze(dim=-1)
-                
-                rendered_rgb = rendered_rgb.permute(0, -1, 1, 2)
+
+                           
+                rendered_rgb = rendered_rgb.squeeze().permute(0, -1, 1, 2)
                 if self.cfg.split_gs_optimizers:
-                    self.strategy.step_pre_backward(
-                        params=self.splats,
-                        optimizers=self.opt,
-                        state=self.strat_state,
-                        step=idx,
-                        info=meta
-                    )
+                    if self.cfg.densification_strat.lower() != "none":
+                        self.strategy.step_pre_backward(
+                            params=self.splats,
+                            optimizers=self.opt,
+                            state=self.strat_state,
+                            step=idx,
+                            info=meta
+                        )
 
                 loss = 0.0
                 for (loss_fn, coeff) in loss_fns:
@@ -235,38 +265,63 @@ class PavGSTrainer:
 
                 loss.backward()
                 if self.cfg.split_gs_optimizers:
+                                    
+                    if isinstance(self.strategy, DefaultStrategy):
+                        gaussian_ids = meta["gaussian_ids"]
+                        for k in self.splats.keys():
+                            grad = self.splats[k].grad
+                            if grad is None or grad.is_sparse:
+                                continue
+                            self.splats[k].grad = torch.sparse_coo_tensor(
+                                indices=gaussian_ids[None],  # [1, nnz]
+                                values=grad[gaussian_ids],  # [nnz, ...]
+                                size=self.splats[k].size(),  # [N, ...]
+                                is_coalesced=len(self.Ks) == 1,
+                            )
+                    
                     for param in self.opt:
                         self.opt[param].step()
                         self.opt[param].zero_grad()
 
-                    # if isinstance(self.strategy, DefaultStrategy):
-                    #     print(list(meta.keys()))
-                    #     print(meta["radii"].size())
-                    #     self.strategy.step_post_backward(
-                    #         params=self.splats,
-                    #         optimizers=self.opt,
-                    #         state=self.strat_state,
-                    #         info=meta,
-                    #         step=idx
-                    #     )
-                    
-                    # elif isinstance(self.strategy, MCMCStrategy):
-                    #     self.strategy.step_post_backward(
-                    #         param=self.splats,
-                    #         optimizers=self.opt,
-                    #         state=self.strat_state,
-                    #         info=meta,
-                    #         lr=self.cfg.geom_lr,
-                    #         step=idx
-                    #     )
+                    if idx != 0:
+                        if self.cfg.densification_strat.lower() != "none":
+                            if isinstance(self.strategy, DefaultStrategy):
+                                self.strategy.step_post_backward(
+                                    params=self.splats,
+                                    optimizers=self.opt,
+                                    state=self.strat_state,
+                                    info=meta,
+                                    step=idx,
+                                    packed=self.cfg.packed
+                                )
+                                if (idx > self.cfg.densification_start and 
+                                    idx < self.cfg.densification_until and 
+                                    idx % self.cfg.densification_interval == 0):
+
+                                    print((32 * "=") + "... Denficiation results ..." + (32 * "="))
+                                    print(f"means: [{self.splats['means'].size()}, {self.splats['means'].min()}, {self.splats['means'].max()}]")
+                                    print(f"opacities: [{self.splats['opacities'].size()}, {self.splats['opacities'].min()}, {self.splats['opacities'].max()}]")
+                                    print(f"scales: [{self.splats['scales'].size()}, {self.splats['scales'].min()}, {self.splats['scales'].max()}]")
+                                    print((32 * "=") + "... Denficiation results ..." + (32 * "="), "\n")
+
+                            elif isinstance(self.strategy, MCMCStrategy):
+                                self.strategy.step_post_backward(
+                                    params=self.splats,
+                                    optimizers=self.opt,
+                                    state=self.strat_state,
+                                    info=meta,
+                                    lr=self.cfg.geom_lr,
+                                    step=idx
+                                )
                 
                 
                 if idx in self.cfg.save_ecposhs:
                     if self.cfg.save_samples:
-                        path = os.path.join(self.cfg.log_dir, f"splats")
-                        if not os.path.exists(path):
-                            os.makedirs(path)
-                        path = os.path.join(path, f"Splats{idx}.ply")
+                        splats_dir = os.path.join(self.cfg.log_dir, "splats")
+                        video_f = os.path.join(self.cfg.log_dir, "render_results.mp4")
+                        if not os.path.exists(splats_dir):
+                            os.makedirs(splats_dir)
+                        path = os.path.join(splats_dir, f"Splats{idx}.ply")
                         
                         export_splats(
                             means=self.splats["means"],
@@ -278,6 +333,8 @@ class PavGSTrainer:
                             format="ply_compressed",
                             save_to=path
                         )
+                        write_video(video_f, rendered_rgb.detach().permute(0, 2, 3, 1), fps=1.0)
+                        
                 
                 pbar.update(1)
                 pbar.set_description(f"GS Reconstraction Loss: ...[{loss.item()}]...")
@@ -293,7 +350,12 @@ if __name__ == "__main__":
 
     basic_pts = BasicPointCloudScene()
     basic_pts.create_from_video([video_path], 2.0)
-    config = Config(log_dir=log_dir)
+    config = Config(
+        log_dir=log_dir,
+        densification_strat="default",
+        apply_sh=False,
+        optim_type="sparse_adam"
+    )
 
     trainer = PavGSTrainer(config, basic_pts, "cuda")
     trainer.train()

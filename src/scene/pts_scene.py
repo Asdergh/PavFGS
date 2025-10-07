@@ -9,7 +9,8 @@ from typing import (
     Union,
     Optional,
     List,
-    Dict
+    Dict,
+    Tuple
 )
 from open3d.geometry import (
     PointCloud,
@@ -22,6 +23,7 @@ from torchvision.io import read_video
 from src.submodules import VGGT
 from open3d.io import write_point_cloud
 from scipy.spatial.transform import Rotation as R
+from sklearn.neighbors import NearestNeighbors
 
 
 class BasicPointCloudScene:
@@ -34,10 +36,11 @@ class BasicPointCloudScene:
         base_rotation: Optional[np.ndarray]=None,
         base_translation: Optional[np.ndarray]=None,
         base_K: Optional[np.ndarray]=np.array([
-            [5.0, 0.0, 56.0],
-            [0.0, 5.0, 56.0],
+            [56.0, 0.0, 56.0],
+            [0.0, 56.0, 56.0],
             [0.0, 0.0, 1.0]
-        ])
+        ]),
+        n_neighbors: Optional[int]=3
     ) -> None:
 
         self.w, self.h = (width, height)
@@ -53,10 +56,11 @@ class BasicPointCloudScene:
         
         self.base_Rmat = base_rotation
         self.base_t = base_translation
+        self.nn_searcher = NearestNeighbors(n_neighbors=n_neighbors)
         
     
 
-    def _vggt2pcd(self, pts, colors) -> PointCloud:
+    def _vggt2pcd(self, pts, colors) -> Tuple[np.ndarray, np.ndarray]:
 
         points = torch.flatten(pts, end_dim=-2)
         colors = torch.flatten(colors.permute(1, 2, 0), end_dim=-2)
@@ -246,7 +250,7 @@ class BasicPointCloudScene:
                 f"{pcd_path}/bbox",
                 rr.Boxes3D(
                     centers=[scene_items["bbox_center"]],
-                    half_sizes=[scene_items["bbox_estent"] / 2],
+                    half_sizes=[scene_items["bbox_extent"] / 2],
                     quaternions=[rr.Quaternion(xyzw=scene_items["bbox_rotation"])],
                     colors=[(0, 255, 0)],
                     labels=f"Scen{idx}"
@@ -269,8 +273,22 @@ class BasicPointCloudScene:
             viewmats = self.viewmats[idx]
 
         bbox = pcd.get_oriented_bounding_box()
+
+        pts = np.asarray(pcd.points)
+        self.nn_searcher.fit(pts)
+        dists, _ = self.nn_searcher.kneighbors(pts)
+
+        initial_scales = np.stack([
+            dists.min(axis=-1),
+            dists.min(axis=-1),
+            dists.min(axis=-1)
+        ], axis=-1)
+        
+
+
         return {
-            "pts": np.asarray(pcd.points),
+            "pts": pts,
+            "initial_scales": initial_scales,
             "colors": np.asarray(pcd.colors),
             "normals": np.asarray(pcd.normals),
             "bbox_center": np.asarray(bbox.center),
@@ -293,12 +311,13 @@ if __name__ == "__main__":
     rot_vec = np.array([1, 0.0, 0.0]) * 90.0
     Rmat = R.from_rotvec(rot_vec, degrees=True).as_matrix()
     # Rmat = None
-    video1 = "/media/test/T7/video_test.mp4"
-    video2 = "/media/test/T7/test_video3.mp4"
+    # video1 = "/media/test/T7/video_test.mp4"
+    # video2 = "/media/test/T7/test_video3.mp4"
+    video3 = "/media/test/T7/sber_indoor.mp4"
     weights = "/media/test/T7/model.pt"
     
     pcd = BasicPointCloudScene(vggt_weights=weights, base_rotation=Rmat)
-    pcd.create_from_video([video1, video2], 2.0)
+    pcd.create_from_video([video3], 5.0)
     # draw_geometries([pcd[0], pcd[1], pcd[2]])
     pcd.save_ply("/media/test/T7/ply_collection")
     pcd.show()
