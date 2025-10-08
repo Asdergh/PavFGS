@@ -1,14 +1,21 @@
-import numpy as np
-from sklearn.neighbors import NearestNeighbors
+import pandas as pd
 
 
-X = np.random.normal(0, 1, (100, 100))
-sample = X[np.random.randint(0, 100, 20)]
-nn_searcher = NearestNeighbors(n_neighbors=3)
-# nn_searcher.fit(X)
+path = "/media/test/T7/ply_collection/person-hall-combined/person-hall/sparse/images.txt"
+DataFrame = pd.read_csv(path)
+# with open(path, "r") as file:
+#     lines = file.readlines()
+#     headers = lines[1].replace(" ", "").replace("#", "")
+#     del lines[:4]
+    
+#     lines = [headers, ] + lines[::2]
+    
+with open(path, "r") as file:
+    line = file.read()
+    line = line.replace(" ", ",")
+    
+with open(path, "w") as file:
+    file.writelines(line)
 
-
-# distances, _ = nn_searcher.kneighbors(X)
-
-distances = distances.min(axis=-1)
-print(distances)
+print(DataFrame.tail())
+# print(DataFrame.tail()O)
