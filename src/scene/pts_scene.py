@@ -54,11 +54,6 @@ class BasicPointCloudScene:
         self.normals = torch.empty(0)
         self.colors = torch.empty(0)     
 
-        self._vggt = VGGT()
-        if vggt_weights is not None:
-            weights = torch.load(vggt_weights, weights_only=True)
-            self._vggt.load_state_dict(weights)
-        
         self.base_Twc = base_transform
         if (self.base_Twc is not None and 
             isinstance(self.base_Twc, np.ndarray)):
@@ -76,169 +71,73 @@ class BasicPointCloudScene:
         pts[..., 2] += viewmat[3, -1]
         return pts
 
-    def _vggt2pcd(self, pts, colors, viewmat) -> Tuple[np.ndarray, np.ndarray]:
-
-        points = torch.flatten(pts, end_dim=-2)
-        colors = torch.flatten(colors.permute(1, 2, 0), end_dim=-2)
-        
-        prune_mask = torch.where(torch.norm(points, dim=-1) == 0, True, False)
-    
-        prune_points = points[~prune_mask].detach()
-        prune_points = self._aply_tranform(prune_points, viewmat).numpy()
-        prune_colors = colors[~prune_mask].numpy()
-        del points, colors
-        
-        if self.base_Twc is not None:
-            prune_points = self._aply_tranform(prune_points, self.base_Twc)
-
-        return (prune_points, prune_colors)
-    
-    def _handle_pose_encs(self, t, quats) -> torch.Tensor:
+ 
+    def _handle_poses(
+        self, 
+        t, quats, 
+        inv: Optional[bool]=False, 
+        axis_correction_dir: Optional[np.ndarray]=None
+    ) -> torch.Tensor:
         
         viewmats = torch.zeros(t.size()[0], 4, 4)
         for idx in range(t.size()[0]):
 
             tmp_t = t[idx, :]
             quat = quats[idx, :].numpy()
-            Rmat = torch.Tensor(R.from_quat(quat).as_matrix())
+            Rmat = torch.Tensor(R.from_quat(quat, scalar_first=True).as_matrix())
 
-            viewmats[idx, :-1, -1] = tmp_t
-            viewmats[idx, :3, :3] = Rmat
+            viewmat = torch.zeros(4, 4)
+            viewmat[:3, :3] = Rmat
+            viewmat[:3, -1] = tmp_t
+            viewmat[-1, -1] = 1.0
+            if inv:
+                viewmat = torch.linalg.inv(viewmat)
+
             if self.base_Twc:
-                viewmats = (self.base_Twc @ viewmats)
-        
+                viewmat = (self.base_Twc @ viewmat)
+            
+            if axis_correction_dir is not None:
+                viewmat = (viewmat @ np.diag(axis_correction_dir))
+
+            viewmats[idx, ...] = viewmat
+            
         return viewmats
             
-    def _handle_frames_stack(
-        self, 
-        pts: torch.Tensor, 
-        inputs: torch.Tensor, 
-        viewmats: torch.Tensor,
-        search_param: Union[KDTreeSearchParamHybrid, KDTreeSearchParamKNN],
-        batch_idx: Optional[int]=0,
-        
-    ) -> PointCloud:
 
-        points_ = []
-        colors_ = []
-        for frame_idx in range(inputs.size()[1]):
-
-            points = pts[batch_idx, frame_idx, ...]
-            colors = inputs[batch_idx, frame_idx, ...]
-            viewmat = viewmats[frame_idx, ...]
-            
-            prune_points, prune_colors = self._vggt2pcd(points, colors, viewmat)
-            points_.append(prune_points)
-            colors_.append(prune_colors)
-        
-        points_ = np.vstack(points_)
-        colors_ = np.vstack(colors_)
-
-        pcd = PointCloud()
-        pcd.points = vec(points_)
-        pcd.colors = vec(colors_)
-        pcd.estimate_normals(search_param)
-
-        return pcd
-
-
-    def create_from_tensor(
-        self, 
-        inputs: torch.Tensor,
-        search_param: Optional[str | KDTreeSearchParamKNN | KDTreeSearchParamHybrid]="knn",
-        k_nns: Optional[int]=30,
-        radius: Optional[int]=0.1
-    ) -> None:
-
-        self.pcds = []
-        self.gt_imgs = []
-        self.viewmats = []
-        inputs = Fv.resize(inputs, (self.w, self.h))
-        if isinstance(search_param, str):
-            if search_param == "knn":
-                search_param = KDTreeSearchParamKNN(knn=k_nns)
-                
-            elif search_param == "hybrid":
-                search_param = KDTreeSearchParamHybrid(radius, k_nns)
-
-        if len(inputs.size()) == 5:
-            with torch.no_grad():
-                vggt_item_ = self._vggt(inputs)
-            for batch_idx in range(inputs.size()[0]):
-
-                t, quats = vggt_item_["pose_enc"][batch_idx, :, :-2].split([3, 4], dim=-1)
-                viewmats = self._handle_pose_encs(t, quats)
-                self.viewmats.append(viewmats)
-
-                pcd = self._handle_frames_stack(
-                    inputs=inputs,
-                    pts=vggt_item_["world_points"],
-                    search_param=search_param,
-                    batch_idx=batch_idx,
-                    viewmats=viewmats                    
-                )
-
-                self.pcds.append(pcd)
-                self.gt_imgs.append(inputs[batch_idx, ...])
-
-            
-        else:
-            vggt_item_ = self._vggt(inputs.unsqueeze(dim=0))
-            pcd = self._handle_frames_stack(
-                inputs=inputs,
-                pts=vggt_item_["world_points"],
-                search_param=search_param
-            )
-            self.pcds = [pcd]
-            self.gt_imsg = [inputs.squeeze()]
-            
-            t, quats = vggt_item_["pose_enc"][0, :, :-2].split([3, 4], dim=-1)
-            viewmats = self._handle_pose_encs(t, quats)
-            self.viewmats = [viewmats]
-
-            
-   
-    def create_from_video(
-        self, 
-        paths: List[str], 
-        fps: Optional[float]=20.0, 
-        search_param: Optional[str]="knn",
-        k_nns: Optional[int]=30,
-        radius: Optional[int]=0.1
-    ) -> None:
-
-
-        if search_param == "knn":
-                search_param = KDTreeSearchParamKNN(knn=k_nns)
-            
-        elif search_param == "hybrid":
-            search_param = KDTreeSearchParamHybrid(radius, k_nns)
-
-        clips = [VideoFileClip(path) for path in paths]
-        frames_n = int(max([clip.duration for clip in clips]) * fps)
-        batches_n = len(paths)
-        frames_ = torch.zeros(batches_n, frames_n, 3, self.w, self.h)
-        for clip_idx, clip in enumerate(clips):
-            frames = clip.iter_frames(fps=fps)
-            for frame_idx, frame in enumerate(frames):
-
-                frame = torch.Tensor(frame).permute(-1, 0, 1)
-                frame = (frame / 255.0).to(torch.float32)
-                frame = Fv.resize(frame, (self.w, self.h))
-                frames_[clip_idx, frame_idx, ...] = frame
-        
-        print(frames_.size())
-        self.create_from_tensor(frames_, search_param, k_nns, radius)
-            
-    
     def _parse_colmap_path(self, path: str) -> Tuple:
 
         imgs_path = os.path.join(path, "images")
         cameras_path = os.path.join(path, "sparse/images.txt")
-        cameras_info = pd.read_csv(cameras_path)
         points_path = os.path.join(path, "sparse/points3D.txt")
+        camera_params = os.path.join(path, "sparse/cameras.txt")
 
-        return (imgs_path, cameras_info, points_path)
+        cameras_info = pd.read_csv(cameras_path)
+        K = None
+        scale_factor = None
+        if os.path.exists(camera_params):
+            with open(camera_params, "r") as file:
+                data = file.readlines()[-1].split(" ")
+                params = [float(val) for val in data[2:6]]
+                K = np.array([
+                    [params[0], 0.0, params[2]],
+                    [0.0, params[1], params[-1]],
+                    [0.0, 0.0, 0.0]
+                ])
+                if (self.w is not None and 
+                    self.h is not None):
+                    scale_w = self.w / K[0, 0]
+                    scale_h = self.h / K[1, 1]
+                    scale_factor = 0.5 * (scale_w + scale_h)
+                    K *= scale_factor
+
+
+        return (
+            imgs_path, 
+            points_path, 
+            cameras_info, 
+            (K if K is not None else None),
+            (scale_factor if scale_factor is None else None)
+        )
 
     def create_from_colmap(
         self,
@@ -248,10 +147,18 @@ class BasicPointCloudScene:
         shuffle: Optional[bool]=True,
         search_param: Optional[str | KDTreeSearchParamKNN | KDTreeSearchParamHybrid]="knn",
         k_nns: Optional[int]=30,
-        radius: Optional[int]=0.1
+        radius: Optional[int]=0.1,
+        max_radii: Optional[float]=None,
+        inv_poses: Optional[float]=False,
+        axis_correction_dir: Optional[np.ndarray]=None,
+        olr_radii: Optional[float]=0.32,
+        olr_nbhs: Optional[float]=12
     ) -> None:
 
-        imgs_path, cams, points_f = self._parse_colmap_path(path)
+        imgs_path, points_f, cams, K, scale = self._parse_colmap_path(path)
+        if K is not None:
+            self.K = K
+
         if isinstance(search_param, str):
             if search_param == "knn":
                 search_param = KDTreeSearchParamKNN(knn=k_nns)
@@ -259,8 +166,8 @@ class BasicPointCloudScene:
             elif search_param == "hybrid":
                 search_param = KDTreeSearchParamHybrid(radius, k_nns)
 
-        points_ = np.zeros(partition_size * partitions_n, 3)
-        colors_ = np.zeros(partition_size * partitions_n, 3)
+        points_ = np.zeros((partition_size * partitions_n, 3))
+        colors_ = np.zeros((partition_size * partitions_n, 3))
         imgs_fs = set()
         with tqdm(
             desc="Loading Collmap Partitions ...",
@@ -270,29 +177,40 @@ class BasicPointCloudScene:
         ) as pbar:
             with open(points_f, "r") as file:
                 data_strings = file.readlines()[3:]
-                for _ in range(partitions_n):
-                    idx = np.random.randint(0, len(data_strings) - partition_size)
-                    for raw_idx in range(idx, idx + partition_size):
+                # print(len(data_strings))
+                p_idx = 0
+                for idx in range(partitions_n):
+                    
+                    if shuffle:
+                        idx = np.random.randint(0, len(data_strings) - partition_size)
+                        start_idx = idx
+                        end_idx = start_idx + partition_size
+
+                    else:
+                        start_idx = idx * partition_size
+                        end_idx = (idx + 1) * partition_size
+                        
+                    for raw_idx in range(start_idx, end_idx):
                         
                         raw = data_strings[raw_idx].split(" ")
                         xyz = np.asarray([float(val) for val in raw[1:4]])
                         rgb = np.asarray([int(val) for val in raw[4:7]])
 
-                        cam_ids = [int(val) for val in raw[9::2]]
-                        cam_fs = set(cams[cams["IMAGE_ID"] == cam_ids]["NAME"].tolist())
+                        cam_ids = [int(val) for val in raw[8::2]]
+                        cam_fs = set([cams[cams["IMAGE_ID"] == id]["NAME"].item() for id in cam_ids])
+                        
 
-                        points_[idx, ...] = xyz
-                        colors_[idx, ...] = rgb
+                        points_[p_idx, ...] = xyz
+                        colors_[p_idx, ...] = rgb
                         imgs_fs.update(cam_fs)
 
-                        del data_strings[idx:(idx + partition_size)]
                         pbar.update(1)
-        
-        pcd = PointCloud()
-        pcd.points = vec(points_)
-        pcd.colors = vec(colors_)
-        pcd.estimate_normals(search_param)
-
+                        p_idx += 1
+                    
+                    if shuffle: 
+                        del data_strings[idx:(idx + partition_size)]
+                        idx = np.random.randint(0, len(data_strings) - partition_size)
+                
         
         with tqdm(
             desc="Reading imgs ...",
@@ -301,158 +219,198 @@ class BasicPointCloudScene:
             total=len(imgs_fs)
         ) as pbar:
             
-            quats = np.zeros((len(imgs_fs), 4))
-            txyzs = np.zeros((len(imgs_fs, 3)))
+            quats = []
+            txyzs = []
             gt_imgs = []
             
-            for idx, mg_f in enumerate(imgs_fs):
+            for idx, img_f in enumerate(imgs_fs):
 
                 cam_raw = cams[cams["NAME"] == img_f]
                 img_f = os.path.join(imgs_path, img_f)
-                img = Image.open(img_f)
-                img = (Fv.pil_to_tensor(img) / 255.0).to(torch.float)
-                img = Fv.resize(img, (self.w, self.h))
+                if os.path.exists(img_f):
+                    img = Image.open(img_f)
+                    # img = (Fv.pil_to_tensor(img) / 255.0).to(torch.float)
+                    img = Fv.pil_to_tensor(img)
+                    img = (img / 255.0).to(torch.float32)
+                    img = Fv.resize(img, (self.w, self.h))
+                    
+                else:
+                    img = torch.zeros((3, self.w, self.h))
 
-                quat = np.asarray([float(val) for val in cam_raw[1:5]])
-                txyz = np.asarray([float(val) for val in cam_raw[5:8]])
-                
+                quat = torch.Tensor([float(val) for val in cam_raw.iloc[0, 1:5].tolist()])
+                txyz = torch.Tensor([float(val) for val in cam_raw.iloc[0, 5:8].tolist()])
+
                 gt_imgs.append(img)
-                quats[idx] = quat
-                txyzs[idx] = txyz
+                quats.append(quat)
+                txyzs.append(txyz)
+
+                pbar.update()
         
-        self.pcds = [pcd]
-        self.gt_imgs = [torch.vstack(gt_imgs, dim=0)]
-        self.viewmats = [self._handle_pose_encs(quats, txyzs)]
+
+        quats = torch.stack(quats, dim=0)
+        txyzs = torch.stack(txyzs, dim=0)
+
+        pcd = PointCloud()
+
+        if max_radii is not None:
+            prune_mask = np.where(np.linalg.norm(points_, axis=-1) <= max_radii, True, False)
+            points_ = np.delete(points_, ~prune_mask, axis=0)
+            colors_ = np.delete(colors_, ~prune_mask, axis=0)
+
+        # print(points_.max(), points_.min(), np.linalg.norm(points_, axis=-1).max())
+        if scale is not None:
+            points_ *= scale
+
+        pcd.points = vec(points_)
+        pcd.colors = vec(colors_)
+
+        # print(points_[np.linalg.norm(points_, axis=-1) == 0].shape, points_.shape)
+        pcd.estimate_normals(search_param)
+        pcd.remove_radius_outlier(olr_nbhs, olr_radii)
+        
+        self.pcd = pcd
+        self.gt_imgs = torch.stack(gt_imgs, dim=0)
+        self.viewmats = self._handle_poses(
+            txyzs, quats, 
+            inv=inv_poses, 
+            axis_correction_dir=axis_correction_dir
+        )
         
 
     def save_ply(self, path: str) -> None:
         
         if not os.path.exists(path):
             os.mkdir(path)
-        
-        for idx, pcd in enumerate(self.pcds):
-            pcd_f = os.path.join(path, f"scene_{idx}.ply")
-            write_point_cloud(pcd_f, pcd)
+            pcd_f = os.path.join(path, f"pcd_formar_scene.ply")
+            write_point_cloud(pcd_f, self.pcd)
             
         
     def show(self) -> None:
         
-        path = "pcd_origin"
+        path = "origin"
         rr.init(path, spawn=True)
-        for idx in range(len(self)):
         
-            pcd_path = f"{path}/Scene{idx}"
-            scene_items = self[idx]
-            # print(scene_items["colors"].min(), scene_items["colors"].max())
-            rr.log(
-                f"{pcd_path}/rgb_pts",
-                rr.Points3D(
-                    positions=scene_items["pts"],
-                    colors=(scene_items["colors"] + 1) / 2,
-                    radii=[0.002]
-                )
+        pcd_path = f"{path}/Scene"
+        scene_items = self.get_items()
+        print(scene_items["colors"].shape, scene_items["colors"].min(), scene_items["colors"].mean(), scene_items["colors"].max())
+        # print(scene_items["colors"].min(), scene_items["colors"].max())
+        rr.log(
+            f"{pcd_path}/rgb_pts",
+            rr.Points3D(
+                positions=scene_items["pts"],
+                colors=scene_items["colors"],
+                radii=[0.004]
             )
-            rr.log(
-                f"{pcd_path}/normals_pts",
-                rr.Points3D(
-                    positions=scene_items["pts"],
-                    colors=(scene_items["normals"] * 2) - 1,
-                    radii=[0.002]
-                )
+        )
+        rr.log(
+            f"{pcd_path}/normals_pts",
+            rr.Points3D(
+                positions=scene_items["pts"],
+                colors=(scene_items["normals"] * 2) - 1,
+                radii=[0.004]
             )
+        )
+
+        if ((scene_items["bbox_center"] is not None) and 
+            (scene_items["bbox_extent"] is not None)):
             rr.log(
-                f"{pcd_path}/bbox",
+                f"{path}/bbox",
                 rr.Boxes3D(
                     centers=[scene_items["bbox_center"]],
                     half_sizes=[scene_items["bbox_extent"] / 2],
                     quaternions=[rr.Quaternion(xyzw=scene_items["bbox_rotation"])],
                     colors=[(0, 255, 0)],
-                    labels=f"Scen{idx}"
+                    labels=f"Scene"
                 )
             )
-            for idx, viewmat in enumerate(scene_items["viewmats"]):
+        for idx, viewmat in enumerate(scene_items["viewmats"]):
 
-                gt_img = scene_items["gt_imgs"][idx]
-                if gt_img.shape[0] == 3:
-                    gt_img = gt_img.permute(1, 2, 0)
+            gt_img = scene_items["gt_imgs"][idx]
+            if gt_img.shape[0] == 3:
+                gt_img = gt_img.permute(1, 2, 0)
 
-                rr.log(
-                    f"{pcd_path}/Frame{idx}",
-                    rr.Transform3D(
-                        mat3x3=viewmat[:3, :3],
-                        translation=viewmat[:3, -1]
-                    )
+            rr.log(
+                f"{path}/Poses/Frame{idx}",
+                rr.Transform3D(
+                    mat3x3=viewmat[:3, :3],
+                    translation=viewmat[:3, -1]
                 )
-                rr.log(
-                    f"{pcd_path}/Frame{idx}/ImgRgb",
-                    rr.Pinhole(
-                        focal_length=0.5 * (self.K[0, 0].item() + self.K[1, 1].item()),
-                        width=self.w, 
-                        height=self.h
-                    ),
-                    rr.Image(gt_img)
-                )
+            )
+            rr.log(
+                f"{path}/Poses/Frame{idx}/ImgRgb",
+                rr.Pinhole(
+                    focal_length=0.5 * (self.K[0, 0].item() + self.K[1, 1].item()),
+                    width=self.w, 
+                    height=self.h
+                ),
+                rr.Image(gt_img * 255.0)
+            )
     
-    def __len__(self) -> int:
-        return len(self.pcds)
+
         
-    def __getitem__(self, idx: int) -> dict:
+    def get_items(self) -> dict:
 
-        if idx > len(self):
-            pcd = self.pcd[len(self) - 1]
-            gt_imgs = self.gt_imgs[len(self) - 1]
-            viewmats = self.viewmats[len(self) - 1]
-        
-        else:
-            pcd = self.pcds[idx]
-            gt_imgs = self.gt_imgs[idx]
-            viewmats = self.viewmats[idx]
+        try:
+            bbox = self.pcd.get_oriented_bounding_box()
 
-        bbox = pcd.get_oriented_bounding_box()
+        except BaseException:
+            bbox = None
 
-        pts = np.asarray(pcd.points)
+        pts = np.asarray(self.pcd.points)
         self.nn_searcher.fit(pts)
-        dists, _ = self.nn_searcher.kneighbors(pts)
 
-        initial_scales = np.stack([
-            dists.min(axis=-1),
-            dists.min(axis=-1),
-            dists.min(axis=-1)
-        ], axis=-1)
+        dists, _ = self.nn_searcher.kneighbors(pts)
+        dists = np.log(np.sqrt(dists.min(axis=-1)) + 1e-14)
+        print(dists.shape, dists.min(), dists.mean(), dists.max())
+        initial_scales = np.stack([dists, dists, dists], axis=-1)
         
         return {
             "pts": pts,
             "initial_scales": initial_scales,
-            "colors": np.asarray(pcd.colors),
-            "normals": np.asarray(pcd.normals),
-            "bbox_center": np.asarray(bbox.center),
-            "bbox_extent": np.asarray(bbox.extent),
-            "bbox_rotation": R.from_matrix(bbox.R).as_quat(),
-            "gt_imgs": gt_imgs,
-            "viewmats": viewmats
+            "colors": (np.asarray(self.pcd.colors) / 255.0).astype(np.float32),
+            "normals": np.asarray(self.pcd.normals),
+            "bbox_center": (
+                np.asarray(bbox.center)
+                if bbox is not None
+                else None
+            ),
+            "bbox_extent": (
+                np.asarray(bbox.extent)
+                if bbox is not None
+                else None
+            ),
+            "bbox_rotation": (
+                R.from_matrix(bbox.R).as_quat()
+                if bbox is not None
+                else None
+            ),
+            "gt_imgs": self.gt_imgs,
+            "viewmats": self.viewmats
         }
 
-    def __iter__(self):
-        for idx in range(len(self)):
-            yield self[idx]
 
 
 
 
 if __name__ == "__main__":
-
     
-    rot_vec = np.array([1, 0.0, 0.0]) * 90.0
-    Rmat = R.from_rotvec(rot_vec, degrees=True).as_matrix()
-    # Rmat = None
-    # video1 = "/media/test/T7/video_test.mp4"
-    # video2 = "/media/test/T7/test_video3.mp4"
-    video3 = "/media/test/T7/sber_indoor.mp4"
-    weights = "/media/test/T7/model.pt"
-    
-    pcd = BasicPointCloudScene(vggt_weights=weights)
-    pcd.create_from_video([video3], 5.0)
-    # draw_geometries([pcd[0], pcd[1], pcd[2]])
+    K = np.array([
+        [200.0, 0.0, 64.0],
+        [0.0, 200.0, 64.0],
+        [0.0, 0.0, 1.0]
+    ])
+    pcd = BasicPointCloudScene(base_K=K)
+    # pcd.create_from_video([video3], 5.0)
+    pcd.create_from_colmap(
+        path="/media/test/T7/ply_collection/gerrard-hall",
+        partition_size=1000,
+        partitions_n=40,
+        shuffle=True,
+        max_radii=28.5,
+        inv_poses=True,
+        axis_correction_dir=None
+    )
+    print(pcd.K)
     pcd.save_ply("/media/test/T7/ply_collection")
     pcd.show()
 

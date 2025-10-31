@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-path = "/media/test/T7/ply_collection/person-hall-combined/person-hall/sparse/images.txt"
+path = "/media/test/T7/ply_collection/gerrard-hall/sparse/images.txt"
 DataFrame = pd.read_csv(path)
 # with open(path, "r") as file:
 #     lines = file.readlines()
@@ -9,13 +9,16 @@ DataFrame = pd.read_csv(path)
 #     del lines[:4]
     
 #     lines = [headers, ] + lines[::2]
+
+# with open(path, "w") as file:
+#     file.writelines(lines)
+
+# with open(path, "r") as file:
+#     line = file.read()
+#     line = line.replace(" ", ",")
     
-with open(path, "r") as file:
-    line = file.read()
-    line = line.replace(" ", ",")
-    
-with open(path, "w") as file:
-    file.writelines(line)
+# with open(path, "w") as file:
+#     file.writelines(line)
 
 print(DataFrame.tail())
 # print(DataFrame.tail()O)

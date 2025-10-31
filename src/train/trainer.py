@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import numpy as np 
 import os
+import matplotlib.cm as cm
+from torch.nn import functional as F
+from torchvision.transforms import functional as Fv
 
 from dataclasses import dataclass, field
 from gsplat.rendering import rasterization
@@ -37,12 +40,22 @@ from torchvision.io import write_video
 
 
 
+
+
+__optimizers__ = {
+    "adam": Adam,
+    "adamw": AdamW,
+    "sparse_adam": SparseAdam
+}
 @dataclass
 class Config:
     epochs_n: Optional[int]=15000
     densification_start: Optional[int]=1000
     densification_until: Optional[int]=10000
     densification_interval: Optional[int]=100
+    prune_opa: Optional[float]=0.005
+    grow_scale3d: Optional[float]=0.01
+    prune_scale3d: Optional[float]=0.1
     packed: Optional[bool]=True
     xyz_lr: Optional[float]=0.01
     geom_lr: Optional[float]=0.01
@@ -81,12 +94,19 @@ class PavGSTrainer:
         (self.splats, self.opt, 
         self.gt_rgb, self.viewmats, 
         scene_scale, self.Ks) = self.parse_scene()
+        self.viewmats[..., :3, -1] = F.sigmoid(self.viewmats[..., :3, -1])
+        print(self.viewmats[..., :3, -1].min(), self.viewmats[..., :3, -1].mean(), self.viewmats[..., :3, -1].max())
+        print(self.viewmats[..., :3, :3].min(), self.viewmats[..., :3, :3].mean(), self.viewmats[..., :3, :3].max())
+        print(self.splats["means"].min(), self.splats["means"].mean(), self.splats["means"].max())
     
         if self.cfg.densification_strat.lower() == "default":
             self.strategy = DefaultStrategy(
                 refine_start_iter=self.cfg.densification_start,
                 refine_stop_iter=self.cfg.densification_until,
-                refine_every=self.cfg.densification_interval
+                refine_every=self.cfg.densification_interval,
+                grow_scale3d=self.cfg.grow_scale3d,
+                prune_scale3d=self.cfg.prune_scale3d,
+                prune_opa=self.cfg.prune_opa
             )
             print(scene_scale)
             self.strat_state = self.strategy.initialize_state(scene_scale)
@@ -110,6 +130,12 @@ class PavGSTrainer:
         scene_items = self.base_scene[self.cfg.scene_idx]
         scene_scale = np.linalg.norm(scene_items["bbox_extent"])
         gt_rgb = scene_items["gt_imgs"].to(self.device)
+        if self.cfg.save_samples:
+            print(gt_rgb.size())
+            self.gt_ref_idx = np.random.randint(0, gt_rgb.size()[0])
+            self.imgs2save = []
+            self.ssim_maps2save = []
+
         viewmats = scene_items["viewmats"].to(self.device)
         Ks = torch.Tensor(self.base_scene.K)[None].repeat(gt_rgb.size()[0], 1, 1).to(self.device)
 
@@ -125,60 +151,30 @@ class PavGSTrainer:
         colors = colors.to(self.device)
 
         splats_attrs = [
-            ("means", nn.Parameter(pts.to(self.device)), self.cfg.xyz_lr),         
+            ("means", nn.Parameter(F.sigmoid(pts).to(self.device)), self.cfg.xyz_lr),         
             ("quats", nn.Parameter(quats.to(self.device)), self.cfg.geom_lr),
-            ("scales", nn.Parameter(scales.to(self.device)), self.cfg.geom_lr),
-            ("opacities", nn.Parameter(opactieis.to(self.device)), self.cfg.colors_lr),
+            ("scales", nn.Parameter(F.sigmoid(scales).to(self.device)), self.cfg.geom_lr),
+            ("opacities", nn.Parameter(F.sigmoid(opactieis).to(self.device)), self.cfg.colors_lr),
             ("sh0", nn.Parameter(colors[:, :1, :]), self.cfg.colors_lr),
             ("shN", nn.Parameter(colors[:, 1:, :]), self.cfg.colors_lr)      
         ]
         splats = nn.ParameterDict({n: p for (n, p, _) in splats_attrs})
         
-        if self.cfg.split_gs_optimizers:
-            if self.cfg.optim_type.lower() == "adam":
-                opt = {
-                    n: Adam([{"params": [p], "lr": l, "name": n}], lr=0.1) 
-                    for (n, p, l) in splats_attrs
-                }
-            elif self.cfg.optim_type.lower() == "adamw":
-                opt = {
-                    n: AdamW([{"params": [p], "lr": l, "name": n}], lr=0.1) 
-                    for (n, p, l) in splats_attrs
-                }
-
-            elif self.cfg.optim_type.lower() == "sparse_adam":
-                opt = {
-                    n: SparseAdam([{"params": [p], "lr": l, "name": n}], lr=0.1) 
-                    for (n, p, l) in splats_attrs
-                }
-
-            else:
-                raise ValueError("config: optim_type can be only: [Adam, AdamW]")
+        if self.cfg.optim_type.lower() in __optimizers__:
+            opt = __optimizers__[self.cfg.optim_type.lower()]
         
         else:
-            if self.cfg.optim_type.lower() == "adam":
-                opt = Adam([
-                    {"params": [p], "lr": p, "name": n}
-                    for (n, p, l) in splats_attrs
-                ], lr=0.1)
-
-            elif self.cfg.optim_type.lower() == "adamw":
-                opt = AdamW([
-                    {"params": [p], "lr": p, "name": n}
-                    for (n, p, l) in splats_attrs
-                ], lr=0.1)
-
-            elif self.cfg.optim_type.lower() == "sparse_adam":
-                opt = SparseAdam([
-                    {"params": [p], "lr": p, "name": n}
-                    for (n, p, l) in splats_attrs
-                ], lr=0.1)    
-            
-            else:
-                raise ValueError("config: optim_type can be only: [Adam, AdamW, Sparse_Adam]")
-
+            raise ValueError("config: optim_type can be only: [Adam, AdamW, Sparse_Adam]")
         
+        if self.cfg.split_gs_optimizers:
+            opt = {n: opt([p], lr=l) for (n, p, l) in splats_attrs}
 
+        else:
+            opt = opt([
+                {"params": [p], "lr": p, "name": n}
+                for (n, p, l) in splats_attrs
+            ], lr=0.1)
+        
         return (splats, opt, gt_rgb, viewmats, scene_scale, Ks)
     
 
@@ -247,7 +243,21 @@ class PavGSTrainer:
                     packed=self.cfg.packed
                 )
 
-                           
+                if self.cfg.save_samples:
+                    ref_render = rendered_rgb[self.gt_ref_idx, ...].permute(-1, 0, 1)
+                    ref_gt = self.gt_rgb[self.gt_ref_idx, ...]
+                    if self.cfg.dssim_loss:
+                        _, ssim_heatmap = dssim_loss(
+                            ref_gt, ref_render, 
+                            get_ssim_map=True
+                        )
+                        ssim_heatmap = Fv.resize(
+                            ssim_heatmap.view(1, *ssim_heatmap.size()), 
+                            (self.base_scene.w, self.base_scene.h)
+                        )
+                        self.ssim_maps2save.append(ssim_heatmap)
+                    self.imgs2save.append(ref_render)
+                    
                 rendered_rgb = rendered_rgb.squeeze().permute(0, -1, 1, 2)
                 if self.cfg.split_gs_optimizers:
                     if self.cfg.densification_strat.lower() != "none":
@@ -333,7 +343,18 @@ class PavGSTrainer:
                             format="ply_compressed",
                             save_to=path
                         )
-                        write_video(video_f, rendered_rgb.detach().permute(0, 2, 3, 1), fps=1.0)
+                        
+                        rgb2save = (torch.stack(self.imgs2save, dim=0) * 255.0).cpu()
+                        if self.cfg.dssim_loss:
+                            map2save = torch.stack(self.ssim_maps2save, dim=0).detach().cpu().numpy()
+                            colorized_maps = torch.Tensor(cm.jet(map2save))
+                            print(colorized_maps.size())
+                            colorized_maps = 255 * (colorized_maps.squeeze(dim=0).permute(0, -1, 1, 2)[:, :3, ...])
+                            # print(colorized_maps.min(), colorized_maps.mean(), colorized_maps.max())
+                        
+                        samples2save = torch.cat([rgb2save, colorized_maps], axis=-1)
+                        print(samples2save.size())    
+                        write_video(video_f, samples2save.permute(0, 2, 3, 1), fps=1.0)
                         
                 
                 pbar.update(1)
@@ -349,12 +370,25 @@ if __name__ == "__main__":
     log_dir = "/media/test/T7/ply_collection"
 
     basic_pts = BasicPointCloudScene()
-    basic_pts.create_from_video([video_path], 2.0)
+    basic_pts.create_from_colmap(
+        path="/media/test/T7/ply_collection/gerrard-hall",
+        partition_size=10,
+        partitions_n=40,
+        shuffle=True,
+        max_radii=28.5,
+        inv_poses=True
+    )
     config = Config(
         log_dir=log_dir,
         densification_strat="default",
-        apply_sh=False,
-        optim_type="sparse_adam"
+        apply_sh=True,
+        optim_type="sparse_adam",
+        prune_opa=0.005,
+        grow_scale3d=0.1,
+        prune_scale3d=0.9,
+        xyz_lr=0.001,
+        geom_lr=0.001,
+        colors_lr=0.001
     )
 
     trainer = PavGSTrainer(config, basic_pts, "cuda")

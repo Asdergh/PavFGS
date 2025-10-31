@@ -53,7 +53,6 @@ class DSSIMLoss(nn.Module):
         K2: Optional[float]=0.03,
         L: Optional[float]=255.0,
         kernel_size: Optional[int]=3,
-        get_ssim_map: Optional[bool]=False,
         device: Optional[str]="cuda",
         kernel_type: Optional[str]="gauss", #[gauss, sobel]
     ) -> Union[Tuple, torch.Tensor]:
@@ -67,15 +66,19 @@ class DSSIMLoss(nn.Module):
         
         else:
             raise ValueError("unknown kernel_type!!")
-
-        self.get_ssim_map = get_ssim_map    
+   
         self.GoP = self.GoP.view(1, 1, *self.GoP.size())
         self.GoP = self.GoP.repeat(1, 3, 1, 1).to(device)
         self.C1 = (K1 * L) ** 2
         self.C2 = (K2 * L) ** 2
     
 
-    def forward(self, Img1: torch.Tensor, Img2: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, 
+        Img1: torch.Tensor, 
+        Img2: torch.Tensor, 
+        get_ssim_map: Optional[bool]=False
+    ) -> torch.Tensor:
 
 
         mu_x = F.conv2d(Img1, self.GoP)
@@ -95,7 +98,7 @@ class DSSIMLoss(nn.Module):
         SSIM_map = (S1 * S2).squeeze()
         ssim_score = SSIM_map.mean()
         
-        if self.get_ssim_map:
+        if get_ssim_map:
             return (ssim_score, SSIM_map)
 
         return 1.0 - ssim_score
