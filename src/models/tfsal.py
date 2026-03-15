@@ -1,61 +1,58 @@
 import torch
 import torch.nn as nn
 
-from typing import (
-    Optional,
-    Tuple,
-    Callable
-)
-from src.layers import (
-    ResampleLayer,
-    Mlp
-)
+from typing import Optional, Tuple, Callable
+from src.layers import ResampleLayer, Mlp
 from .audio_encoder import AudioEncoder
 from .lte_block import LTEBlock
 from .amf_block import AmfBlock
 
 
 class TfSal(nn.Module):
-
     def __init__(
         self,
         in_features: int,
-        hiden_features: Optional[int]=32,
-        out_features: Optional[int]=1,
-        features_patch_size: Optional[int]=16,
-        return_hiden_maps: Optional[bool]=False,
-        hiden_act_fn: Callable[..., nn.Module]=nn.ReLU,
-        lte_act_fn: Callable[..., nn.Module]=nn.ReLU,
-        out_act_fn: Callable[..., nn.Module]=nn.Sigmoid,
-        decoding_act_fn: Callable[..., nn.Module]=nn.Sigmoid,
-        amf_filt_order: Optional[list]=["local", "global", "audio"],
-        amf_filt_depth: Optional[int]=1
+        hiden_features: Optional[int] = 32,
+        out_features: Optional[int] = 1,
+        features_patch_size: Optional[int] = 16,
+        return_hiden_maps: Optional[bool] = False,
+        hiden_act_fn: Callable[..., nn.Module] = nn.ReLU,
+        lte_act_fn: Callable[..., nn.Module] = nn.ReLU,
+        out_act_fn: Callable[..., nn.Module] = nn.Sigmoid,
+        decoding_act_fn: Callable[..., nn.Module] = nn.Sigmoid,
+        amf_filt_order: Optional[list] = ["local", "global", "audio"],
+        amf_filt_depth: Optional[int] = 1,
     ) -> None:
-        
 
         super().__init__()
         self.rdm = return_hiden_maps
 
         gen_v_list = [
-            hiden_features, (-1, -1, -1),
-            hiden_features, (-1, -1, -1),
-            hiden_features, (-1, -1, -1),
+            hiden_features,
+            (-1, -1, -1),
+            hiden_features,
+            (-1, -1, -1),
+            hiden_features,
+            (-1, -1, -1),
             hiden_features,
         ]
         up_v_list = [
-            out_features, (1, 1, 1),
-            out_features, (1, 1, 1),
-            out_features, (1, 1, 1),
-            out_features
+            out_features,
+            (1, 1, 1),
+            out_features,
+            (1, 1, 1),
+            out_features,
+            (1, 1, 1),
+            out_features,
         ]
-       
+
         self.resp_block = ResampleLayer(
             in_features=in_features,
             feature_values=gen_v_list,
             hiden_act=hiden_act_fn,
             use_res=True,
             return_scales=True,
-            space_dim="3d"
+            space_dim="3d",
         )
 
         self.hiden_blocks = []
@@ -67,9 +64,9 @@ class TfSal(nn.Module):
                     hiden_act=hiden_act_fn,
                     use_res=True,
                     return_scales=False,
-                    space_dim="3d"
+                    space_dim="3d",
                 )
-            
+
             else:
                 block = ResampleLayer(
                     in_features=hiden_features,
@@ -77,47 +74,53 @@ class TfSal(nn.Module):
                     hiden_act=hiden_act_fn,
                     use_res=True,
                     return_scales=False,
-                    space_dim="3d"
+                    space_dim="3d",
                 )
-            self.hiden_blocks  += [block, ]
-        
+            self.hiden_blocks += [
+                block,
+            ]
+
         self.hiden_blocks = nn.ModuleList(self.hiden_blocks)
-        self.decoding_blocks = nn.ModuleList([
-            ResampleLayer(
-                in_features=hiden_features,
-                feature_values=up_v_list,
-                hiden_act=decoding_act_fn,
-                use_res=True,
-                return_scales=False,
-                space_dim="3d"
-            )
-            for _ in range(4)
-        ])
-        self.lte_blocks = nn.ModuleList([
-            LTEBlock(
-                in_features=hiden_features,
-                out_features=hiden_features,
-                lt_size=features_patch_size,
-                fcn_act=lte_act_fn,
-            )
-            for _ in range(4)
-        ])
-        self.amf_blocks = nn.ModuleList([
-            AmfBlock(
-                in_features=hiden_features,
-                out_features=hiden_features,
-                filt_depth=amf_filt_depth,
-                filtration_order=amf_filt_order
-            )
-            for _ in range(4)
-        ])
-        
+        self.decoding_blocks = nn.ModuleList(
+            [
+                ResampleLayer(
+                    in_features=hiden_features,
+                    feature_values=up_v_list,
+                    hiden_act=decoding_act_fn,
+                    use_res=True,
+                    return_scales=False,
+                    space_dim="3d",
+                )
+                for _ in range(4)
+            ]
+        )
+        self.lte_blocks = nn.ModuleList(
+            [
+                LTEBlock(
+                    in_features=hiden_features,
+                    out_features=hiden_features,
+                    lt_size=features_patch_size,
+                    fcn_act=lte_act_fn,
+                )
+                for _ in range(4)
+            ]
+        )
+        self.amf_blocks = nn.ModuleList(
+            [
+                AmfBlock(
+                    in_features=hiden_features,
+                    out_features=hiden_features,
+                    filt_depth=amf_filt_depth,
+                    filtration_order=amf_filt_order,
+                )
+                for _ in range(4)
+            ]
+        )
+
         self.au_encoder = AudioEncoder(hiden_features)
         self.out_block = nn.Sequential(
-            nn.Conv3d(4, out_features, (3, 3, 3), 1, 1),
-            out_act_fn()
+            nn.Conv3d(4, out_features, (3, 3, 3), 1, 1), out_act_fn()
         )
-    
 
     def forward(self, input: Tuple[torch.Tensor]) -> torch.Tensor:
 
@@ -137,26 +140,16 @@ class TfSal(nn.Module):
             amf_fx = self.amf_blocks[idx]([lte_fx, Au])
             dense_map = self.decoding_blocks[idx](amf_fx)
 
-            dense_maps += [dense_map, ]
-            hiden_features += [fx, ]
-        
+            dense_maps += [
+                dense_map,
+            ]
+            hiden_features += [
+                fx,
+            ]
+
         dense_map = torch.cat(dense_maps, dim=1)
         dense_map = self.out_block(dense_map)
         if self.rdm:
             return (dense_map, dense_maps)
 
         return dense_map
-        
-            
-
-        
-    
-
-    
-
-        
-            
-
-
-        
-            

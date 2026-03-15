@@ -6,7 +6,9 @@ st.set_page_config(layout="wide", page_title="3D Viewer")
 
 st.title("🧬 3D Viewer с анимацией")
 
-GLB_PATH = r"C:\projects\python\PavFGS\src\interface\creepy_scarecrow__horror_stylized.glb"
+GLB_PATH = (
+    r"C:\projects\python\PavFGS\src\interface\creepy_scarecrow__horror_stylized.glb"
+)
 
 if not os.path.exists(GLB_PATH):
     st.error(f"❌ Файл не найден: {GLB_PATH}")
