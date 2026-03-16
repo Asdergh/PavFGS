@@ -2,6 +2,8 @@ venv/
 meta/
 .git-backup/
 *.zip
+# большие сэмплы — не хранить в репо
+gs_samples/
 # python bytecode
 *.pyc
 *.pyo
