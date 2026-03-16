@@ -1,26 +1,25 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
 
 plt.style.use("dark_background")
 
-from tqdm import tqdm
-from scipy.spatial.transform.rotation import Rotation as R
-from PIL import Image
-from torchvision.transforms import functional as Fv
 from gsplat import rasterization
-from torch.optim import Adam, SGD
-from matplotlib.animation import FuncAnimation, ArtistAnimation
-from src.submodules.VGGT.vggt.models.vggt import VGGT
-from src.utils import ssim, eval_sh
+from PIL import Image
+from scipy.spatial.transform.rotation import Rotation as R
 
 # from src.scene.gaussian_model import GaussianModel
 from src.scene.gaussian_model_origin import (
-    GaussianModel,
     BasicPointCloud,
+    GaussianModel,
     TrainingConfig,
 )
+from src.submodules.VGGT.vggt.models.vggt import VGGT
+from torchvision.transforms import functional as Fv
+from tqdm import tqdm
+
+from src.utils import ssim
 
 device = "cuda"
 

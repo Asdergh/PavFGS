@@ -1,7 +1,9 @@
+from typing import Callable, Optional, Tuple
+
 import torch
 import torch.nn as nn
+
 from src.layers import FilterBlock, Gap, Mlp
-from typing import Optional, Union, Callable, Tuple
 
 
 class AmfBlock(nn.Module):

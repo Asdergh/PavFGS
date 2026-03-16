@@ -1,14 +1,11 @@
-import streamlit as st
-from streamlit_stl import stl_from_text
-import tempfile
-import time
-import os
 import base64
-from pathlib import Path
-import plotly.graph_objects as go
-import plotly.express as px
-import numpy as np
-from plyfile import PlyData
+
+# from streamlit_stl import stl_from_text
+import os
+
+import streamlit as st
+
+# from plyfile import PlyData
 
 
 st.set_page_config(layout="wide", page_title="PavFGS")
@@ -52,7 +49,7 @@ st.html("""
             font-weight: 300;
             letter-spacing: 3px;
             text-transform: uppercase;
-        '>Next Generation 3D Modeling Platform</p>
+        '>Next Generation 4D Modeling Platform</p>
         
         <div style='
             margin-top: 20px;
@@ -229,7 +226,6 @@ st.html("""
 #
 #
 import streamlit as st
-import base64
 
 
 def create_ply_viewer(ply_data=None):
@@ -487,11 +483,6 @@ def create_ply_viewer(ply_data=None):
 
 
 import streamlit as st
-import base64
-import tempfile
-import os
-import requests
-from pathlib import Path
 
 
 def create_supersplat_viewer(ply_data=None, file_name="model.ply"):
@@ -841,6 +832,46 @@ def create_supersplat_viewer(ply_data=None, file_name="model.ply"):
     return html_template
 
 
+BRUSH_VIEWER_URL = os.environ.get(
+    "PAVFGS_BRUSH_URL", "https://arthurbrussee.github.io/brush-demo"
+)
+
+
+def _render_brush_window():
+    st.markdown("### 🖌️ Brush — 4D Gaussian Splatting Viewer")
+    brush_url = st.text_input(
+        "Brush URL (оставь пустым для демо)",
+        value=BRUSH_VIEWER_URL,
+        key="brush_url",
+        help="Демо: https://arthurbrussee.github.io/brush-demo | Локально: http://localhost:3000 после npm run dev в brush/brush_nextjs",
+    )
+    url = brush_url.strip() or BRUSH_VIEWER_URL
+    if not url.strip().lower().startswith("http://localhost"):
+        st.info(
+            "**Ползунок времени** и загрузка файлов по URL работают только в **локальной** сборке Brush. "
+            "Сейчас открыт демо — ползунка там нет. Чтобы увидеть ползунок: в терминале выполни "
+            "`cd brush/brush_nextjs && npm run build:wasm-dev && npm run dev`, затем укажи URL **http://localhost:3000**."
+        )
+    iframe_html = f"""
+    <iframe
+        src="{url}"
+        style="width:100%; height:800px; border:1px solid #333; border-radius:8px; background:#000;"
+        allow="webgpu"
+        allowfullscreen
+        title="Brush Viewer"
+   ></iframe>
+    """
+    st.components.v1.html(iframe_html, height=820, scrolling=False)
+    # with st.expander("ℹ️ О Brush"):
+    #     st.markdown("""
+    #     **Brush** — движок 3D-реконструкции на базе Gaussian Splatting из папки `brush/`.
+    #     - Поддерживает .ply, .compressed.ply и zip с анимацией (несколько кадров).
+    #     - В браузере только Chrome/Edge (WebGPU).
+    #     - **Ползунок времени:** при загрузке анимации (zip с кадрами или 4D) внизу сцены появляется ползунок **⏱ … / N с** — перетаскивай для просмотра по секунде/кадру. Сверху справа — кнопка **▶/⏸** (play/pause).
+    #     Локально: `cd brush/brush_nextjs && npm run dev`, затем URL `http://localhost:3000`.
+    #     """)
+
+
 def main():
     # st.set_page_config(
     #     page_title="SuperSplat Viewer",
@@ -866,152 +897,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # Header
-    # col1, col2 = st.columns([1, 3])
-    # with col1:
-    #     st.markdown("# 🎯")
-    # with col2:
-    #     st.title("SuperSplat Viewer")
-    #     st.markdown("**Real-time Gaussian Splatting 3D Visualization**")
-
-    # File upload
-    uploaded_file = st.file_uploader(
-        "Upload Gaussian Splatting PLY File",
-        type=["ply"],
-        help="Upload a .ply file containing Gaussian Splatting data",
-    )
-
-    if uploaded_file:
-        ply_data = uploaded_file.getvalue()
-        file_name = uploaded_file.name
-
-        # File analysis
-        st.success(f"✅ **{file_name}** loaded successfully!")
-
-        # File info cards
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric("File Size", f"{len(ply_data) / 1024 / 1024:.2f} MB")
-
-        with col2:
-            # Check if it's Gaussian Splatting format
-            header_text = ply_data[:2000].decode("utf-8", errors="ignore")
-            if all(prop in header_text for prop in ["f_dc_0", "scale_0", "rot_0"]):
-                st.metric("Format", "🎯 Gaussian Splatting")
-            else:
-                st.metric("Format", "⚠️ Check Format")
-
-        with col3:
-            # Count vertices
-            vertex_match = header_text.find("element vertex")
-            if vertex_match != -1:
-                vertex_line = header_text[vertex_match : vertex_match + 100].split(
-                    "\\n"
-                )[0]
-                try:
-                    vertex_count = int(vertex_line.split()[2])
-                    st.metric("Splats", f"{vertex_count:,}")
-                except:
-                    st.metric("Splats", "N/A")
-
-        with col4:
-            st.metric("Status", "🟢 Ready")
-
-        # Create and display viewer
-        with st.spinner("🚀 Initializing SuperSplat Viewer..."):
-            html_content = create_supersplat_viewer(ply_data, file_name)
-
-        # Viewer
-        st.markdown("### 🎮 3D Viewer")
-        st.components.v1.html(html_content, height=800, scrolling=False)
-
-        # Controls and info
-        with st.expander("🎯 About SuperSplat Viewer"):
-            st.markdown("""
-            **SuperSplat Technology:**
-            - 🎯 **Gaussian Splatting**: Advanced 3D representation using millions of Gaussian distributions
-            - ⚡ **Real-time Rendering**: Hardware-accelerated visualization
-            - 🎨 **Photorealistic Quality**: Per-splat colors and materials
-            - 🔧 **Interactive Controls**: Full 6DOF camera control
-            
-            **Optimized Features:**
-            - Automatic level-of-detail (LOD)
-            - Frustum culling for performance
-            - Efficient memory usage
-            - Smooth camera movements
-            
-            **Best for:**
-            - 3D scanning data
-            - Neural radiance fields (NeRF)
-            - Photogrammetry reconstructions
-            - Real-time 3D applications
-            """)
-
-        with st.expander("🎮 Controls Guide"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Mouse Controls:**
-                - **Left Click + Drag**: Rotate view
-                - **Right Click + Drag**: Pan camera
-                - **Mouse Wheel**: Zoom in/out
-                - **Double Click**: Focus on point
-                """)
-            with col2:
-                st.markdown("""
-                **Keyboard Controls:**
-                - **W/S**: Move forward/backward
-                - **A/D**: Move left/right
-                - **Q/E**: Roll camera
-                - **R**: Reset view
-                - **Space**: Toggle auto-rotate
-                """)
-
-    else:
-        # Welcome screen
-        st.info("👆 **Upload a Gaussian Splatting PLY file to begin**")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("""
-            ### 🚀 Quick Start
-            
-            1. **Upload** a `.ply` file in Gaussian Splatting format
-            2. **Wait** for automatic processing
-            3. **Interact** with the 3D viewer
-            4. **Explore** your model in real-time
-            
-            ### 📁 Supported Format
-            
-            Files should contain:
-            - Position data (x, y, z)
-            - Spherical harmonics (f_dc_0, f_dc_1, f_dc_2)
-            - Scale parameters (scale_0, scale_1, scale_2)
-            - Rotation quaternions (rot_0, rot_1, rot_2, rot_3)
-            - Opacity values
-            """)
-
-        with col2:
-            st.markdown("""
-            ### 🎯 What is Gaussian Splatting?
-            
-            Gaussian Splatting is a revolutionary 3D technique that:
-            
-            - ✅ **Represents scenes** as millions of Gaussian distributions
-            - ✅ **Real-time rendering** at high quality
-            - ✅ **Efficient compression** of 3D data
-            - ✅ **Photorealistic results** from images/video
-            
-            ### 🔧 Technical Features
-            
-            - **62 properties** per splat
-            - **Hardware acceleration** via WebGL
-            - **Automatic optimization** for performance
-            - **Interactive editing** capabilities
-            """)
-
+    _render_brush_window()
 
 if __name__ == "__main__":
     main()

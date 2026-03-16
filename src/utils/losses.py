@@ -1,9 +1,9 @@
+import math
+from typing import Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import math
-
-from typing import Optional, Tuple, Union
 from torch.nn import functional as F
 
 
@@ -45,12 +45,12 @@ def sobel_kernel(kernel_size: int, return_full: Optional[bool] = False) -> Tuple
 class DSSIMLoss(nn.Module):
     def __init__(
         self,
-        K1: Optional[float]=0.01,
-        K2: Optional[float]=0.03,
-        L: Optional[float]=255.0,
-        kernel_size: Optional[int]=3,
-        device: Optional[str]="cuda",
-        kernel_type: Optional[str]="gauss", #[gauss, sobel]
+        K1: Optional[float] = 0.01,
+        K2: Optional[float] = 0.03,
+        L: Optional[float] = 255.0,
+        kernel_size: Optional[int] = 3,
+        device: Optional[str] = "cuda",
+        kernel_type: Optional[str] = "gauss",  # [gauss, sobel]
     ) -> Union[Tuple, torch.Tensor]:
 
         super().__init__()
@@ -62,17 +62,17 @@ class DSSIMLoss(nn.Module):
 
         else:
             raise ValueError("unknown kernel_type!!")
-   
+
         self.GoP = self.GoP.view(1, 1, *self.GoP.size())
         self.GoP = self.GoP.repeat(1, 3, 1, 1).to(device)
         self.C1 = (K1 * L) ** 2
         self.C2 = (K2 * L) ** 2
 
     def forward(
-        self, 
-        Img1: torch.Tensor, 
-        Img2: torch.Tensor, 
-        get_ssim_map: Optional[bool]=False
+        self,
+        Img1: torch.Tensor,
+        Img2: torch.Tensor,
+        get_ssim_map: Optional[bool] = False,
     ) -> torch.Tensor:
 
         mu_x = F.conv2d(Img1, self.GoP)
@@ -91,7 +91,7 @@ class DSSIMLoss(nn.Module):
 
         SSIM_map = (S1 * S2).squeeze()
         ssim_score = SSIM_map.mean()
-        
+
         if get_ssim_map:
             return (ssim_score, SSIM_map)
 

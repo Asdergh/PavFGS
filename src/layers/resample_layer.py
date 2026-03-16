@@ -1,6 +1,7 @@
+from typing import Callable, Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Optional, Callable, Tuple
 
 
 class ResampleLayer(nn.Module):

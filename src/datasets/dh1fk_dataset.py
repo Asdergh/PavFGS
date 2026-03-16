@@ -1,16 +1,14 @@
+import os
+from pathlib import Path
+from typing import Optional, Tuple
+
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import os
-import cv2
-
-from pathlib import Path
 from moviepy import VideoFileClip
-from utils.data import read_avi
-from tqdm import tqdm
-from typing import Optional, Tuple
-from .base import BaseDataset
 
-import matplotlib.pyplot as plt
+from .base import BaseDataset
 
 plt.style.use("dark_background")
 

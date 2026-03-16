@@ -1,10 +1,7 @@
-import torch
-import numpy as np
-import os
-
-from moviepy import VideoFileClip
 from typing import Optional, Tuple
-from plyfile import PlyElement
+
+import numpy as np
+from moviepy import VideoFileClip
 
 
 def read_avi(

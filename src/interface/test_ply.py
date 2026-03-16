@@ -119,10 +119,11 @@
 #     main()
 
 
-import streamlit as st
 import base64
-import tempfile
 import os
+import tempfile
+
+import streamlit as st
 
 
 def create_supersplat_viewer(ply_data=None, file_name="model.ply"):
@@ -309,7 +310,7 @@ def create_fallback_viewer(ply_data=None, file_name="model.ply"):
     else:
         ply_base64 = ""
 
-    html_template = f"""
+    html_template = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -317,9 +318,9 @@ def create_fallback_viewer(ply_data=None, file_name="model.ply"):
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-            body, html {{ margin: 0; padding: 0; background: #000; }}
-            #canvas {{ display: block; width: 100%; height: 100vh; }}
-            #info {{ position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; }}
+            body, html { margin: 0; padding: 0; background: #000; }
+            #canvas { display: block; width: 100%; height: 100vh; }
+            #info { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; }
         </style>
     </head>
     <body>
@@ -330,7 +331,7 @@ def create_fallback_viewer(ply_data=None, file_name="model.ply"):
             // ПРОСТОЙ РАБОЧИЙ ВЬЮЕР
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({{ canvas: document.getElementById('canvas') }});
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
             renderer.setSize(window.innerWidth, window.innerHeight);
             
             const light = new THREE.AmbientLight(0xffffff, 1);
@@ -341,48 +342,48 @@ def create_fallback_viewer(ply_data=None, file_name="model.ply"):
             controls.enableDamping = true;
             
             // СОЗДАЕМ ДЕМО ТОЧКИ
-            function createDemoPoints() {{
+            function createDemoPoints() {
                 const geometry = new THREE.BufferGeometry();
                 const vertices = [];
                 const colors = [];
                 
-                for (let i = 0; i < 2000; i++) {{
+                for (let i = 0; i < 2000; i++) {
                     vertices.push(
                         (Math.random() - 0.5) * 4,
                         (Math.random() - 0.5) * 4, 
                         (Math.random() - 0.5) * 4
                     );
                     colors.push(Math.random(), Math.random(), Math.random());
-                }}
+                }
                 
                 geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
                 geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
                 
-                const material = new THREE.PointsMaterial({{
+                const material = new THREE.PointsMaterial({
                     size: 0.05,
                     vertexColors: true
-                }});
+                });
                 
                 const points = new THREE.Points(geometry, material);
                 scene.add(points);
                 
                 document.getElementById('info').textContent = '3D Points: 2000 demo points';
-            }}
+            }
             
-            function animate() {{
+            function animate() {
                 requestAnimationFrame(animate);
                 controls.update();
                 renderer.render(scene, camera);
-            }}
+            }
             
             createDemoPoints();
             animate();
             
-            window.addEventListener('resize', () => {{
+            window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
-            }});
+            });
         </script>
     </body>
     </html>

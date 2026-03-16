@@ -1,9 +1,10 @@
+from typing import Callable, Optional
+
 import torch
 import torch.nn as nn
-
-from src.layers import ResampleLayer, Mlp
-from typing import Optional, Callable
 from torchaudio.transforms import MelSpectrogram
+
+from src.layers import Mlp, ResampleLayer
 
 
 class AudioEncoder(nn.Module):

@@ -1,6 +1,7 @@
-import streamlit as st
 import base64
 import os
+
+import streamlit as st
 
 st.set_page_config(layout="wide", page_title="3D Viewer")
 
@@ -310,7 +311,7 @@ st.markdown("""
 
 st.subheader("Простой вариант (если выше не работает)")
 
-simple_html = f"""
+simple_html = """
 <iframe style="width:100%; height:600px; border:none;" 
         src="https://gltf-viewer.donmccurdy.com/">
 </iframe>

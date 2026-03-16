@@ -1,8 +1,9 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
 from src.layers import Gap, Mlp
-from typing import Optional, Callable
 
 
 class LTEBlock(nn.Module):

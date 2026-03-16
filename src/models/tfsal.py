@@ -1,11 +1,13 @@
+from typing import Callable, Optional, Tuple
+
 import torch
 import torch.nn as nn
 
-from typing import Optional, Tuple, Callable
-from src.layers import ResampleLayer, Mlp
+from src.layers import ResampleLayer
+
+from .amf_block import AmfBlock
 from .audio_encoder import AudioEncoder
 from .lte_block import LTEBlock
-from .amf_block import AmfBlock
 
 
 class TfSal(nn.Module):

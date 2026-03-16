@@ -1,9 +1,9 @@
-import torch
-import numpy as np
-from torch.utils.data import Dataset
-from typing import Optional, Union, Tuple
-from torchvision.transforms import Resize
 from abc import ABC, abstractmethod
+from typing import Optional, Tuple
+
+import torch
+from torch.utils.data import Dataset
+from torchvision.transforms import Resize
 
 
 class BaseDataset(ABC, Dataset):

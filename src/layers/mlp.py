@@ -1,6 +1,7 @@
+from typing import Callable, Optional
+
 import torch as th
 import torch.nn as nn
-from typing import Optional, Union, Callable
 
 
 class Mlp(nn.Module):
