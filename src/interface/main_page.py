@@ -60,6 +60,7 @@ st.html("""
             <span style='color: #00d4ff; font-size: 14px;'>⚡ Real-time</span>
             <span style='color: #00d4ff; font-size: 14px;'>🎯 Precision</span>
             <span style='color: #00d4ff; font-size: 14px;'>🚀 Performance</span>
+            <span style='color: #00d4ff; font-size: 14px;'>⚛️ Science</span>
         </div>
     </div>
 """)
@@ -883,20 +884,330 @@ def main():
     st.markdown(
         """
     <style>
+    :root {
+        --page-bg: #040813;
+        --text-primary: #e5ecff;
+        --text-secondary: #9fb0d4;
+        --card-bg: rgba(10, 16, 36, 0.78);
+        --border-color: rgba(125, 152, 255, 0.26);
+        --accent: #5b8cff;
+        --accent-soft: rgba(69, 111, 255, 0.16);
+    }
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 12% 18%, rgba(84, 131, 255, 0.22), transparent 24%),
+            radial-gradient(circle at 80% 10%, rgba(125, 82, 255, 0.18), transparent 25%),
+            radial-gradient(circle at 80% 68%, rgba(35, 181, 255, 0.16), transparent 30%),
+            linear-gradient(180deg, #030712 0%, #050a18 45%, #02050e 100%);
+        color: var(--text-primary);
+    }
+    [data-testid="stHeader"] {
+        background: rgba(3, 7, 18, 0.45);
+        backdrop-filter: blur(8px);
+    }
     .main .block-container {
-        padding-top: 1rem;
+        padding-top: 1.2rem;
+        padding-bottom: 3rem;
+        max-width: 1200px;
+    }
+    .paper-hero {
+        background:
+            radial-gradient(circle at 75% -15%, rgba(110, 142, 255, 0.34), transparent 45%),
+            radial-gradient(circle at 10% 110%, rgba(0, 221, 255, 0.14), transparent 40%),
+            linear-gradient(130deg, rgba(8, 14, 34, 0.98) 0%, rgba(13, 28, 66, 0.96) 55%, rgba(28, 57, 143, 0.9) 100%);
+        border-radius: 22px;
+        padding: 36px 34px;
+        border: 1px solid rgba(145, 168, 255, 0.28);
+        color: #eef4ff;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        margin-bottom: 1.25rem;
+    }
+    .paper-title {
+        margin: 0 0 10px 0;
+        font-size: 2.1rem;
+        line-height: 1.22;
+        letter-spacing: 0.2px;
+        font-weight: 800;
+    }
+    .paper-subtitle {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1.03rem;
+        line-height: 1.65;
+        max-width: 930px;
+    }
+    .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+    .meta-pill {
+        background: rgba(191, 211, 255, 0.11);
+        border: 1px solid rgba(177, 200, 255, 0.26);
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.83rem;
+        letter-spacing: 0.2px;
+        color: #d9e4ff;
+    }
+    .section-title {
+        color: var(--text-primary);
+        font-weight: 700;
+        font-size: 1.12rem;
+        margin-top: 0.3rem;
+        margin-bottom: 0.55rem;
+    }
+    .paper-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 18px 18px 16px 18px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(170, 191, 255, 0.08);
+        backdrop-filter: blur(9px);
+        height: 100%;
+    }
+    .paper-card h4 {
+        margin: 0 0 9px 0;
+        color: #dce8ff;
+        font-size: 1.01rem;
+    }
+    .paper-card p, .paper-card li {
+        color: var(--text-secondary);
+        line-height: 1.55;
+        font-size: 0.95rem;
+    }
+    .paper-callout {
+        border-left: 4px solid var(--accent);
+        background: linear-gradient(90deg, var(--accent-soft) 0%, rgba(53, 74, 145, 0.2) 100%);
+        border: 1px solid rgba(120, 152, 255, 0.3);
+        border-radius: 12px;
+        padding: 14px 14px 12px 14px;
+        color: #c8d7ff;
+        margin: 0.4rem 0 0.75rem 0;
+    }
+    .placeholder {
+        border: 1px dashed rgba(160, 184, 255, 0.44);
+        border-radius: 12px;
+        padding: 13px 14px;
+        margin-top: 10px;
+        color: #8ea2cc;
+        background: rgba(13, 20, 45, 0.72);
+        font-size: 0.92rem;
     }
     .stButton button {
-        background: linear-gradient(45deg, #00ff88, #00ccff);
-        color: black;
-        font-weight: bold;
+        background: linear-gradient(135deg, #3765ff, #30b7ff);
+        color: #ffffff;
+        font-weight: 600;
         border: none;
+        border-radius: 8px;
     }
     </style>
     """,
         unsafe_allow_html=True,
     )
 
+    language = st.radio("Language / Язык", options=["RU", "EN"], horizontal=True, key="paper_language")
+    is_en = language == "EN"
+
+    if is_en:
+        hero_title = "PavFGS: Spatio-Temporal Reconstruction and Visualization of 4D Scenes Based on Gaussian Splatting"
+        hero_subtitle = (
+            "A modern presentation page for a diploma project: academic structure, clean visual hierarchy, "
+            "and ready-to-fill sections for future paper content."
+        )
+        version_pill = "Version: draft layout"
+        language_pill = "Language: EN"
+        status_pill = "Status: material preparation"
+        format_pill = "Format: web preview"
+        section_context = "Abstract and Research Context"
+        abstract_title = "Abstract"
+        abstract_text = (
+            "Provide a concise description of the research problem, methodology, and key findings here. "
+            "Recommended length: 120-200 words."
+        )
+        abstract_placeholder = "[PLACEHOLDER] Insert the final abstract of the diploma project."
+        keywords_title = "Keywords"
+        research_problem_title = "Research Problem"
+        research_problem_text = (
+            "Describe which technical or scientific challenge your project addresses and why existing "
+            "approaches are not sufficient."
+        )
+        research_problem_placeholder = "[PLACEHOLDER] Add the research problem statement and hypothesis."
+        section_structure = "Paper Structure"
+        intro_title = "1. Introduction"
+        intro_b1 = "Motivation and application domain"
+        intro_b2 = "Related work overview"
+        intro_b3 = "Research goals and objectives"
+        intro_placeholder = "[PLACEHOLDER] Briefly describe the introduction section."
+        method_title = "2. Methodology"
+        method_b1 = "Data processing pipeline"
+        method_b2 = "PavFGS architecture and components"
+        method_b3 = "Complexity and resource analysis"
+        method_placeholder = "[PLACEHOLDER] Add methodology and mathematical details."
+        results_title = "3. Experiments and Conclusions"
+        results_b1 = "Datasets and evaluation metrics"
+        results_b2 = "Comparison with baseline methods"
+        results_b3 = "Limitations and future work"
+        results_placeholder = "[PLACEHOLDER] Insert results and discussion."
+        callout_label = "Team note:"
+        callout_text = (
+            "this page is designed as a presentation preview. Prepare final text sections "
+            "(introduction, method, metrics, conclusions), then replace placeholders."
+        )
+        section_interactive = "Interactive Result Preview"
+    else:
+        hero_title = "PavFGS: Пространственно-временная реконструкция и визуализация 4D-сцен на базе Gaussian Splatting"
+        hero_subtitle = (
+            "Современная демонстрационная страница для дипломной работы: академическая структура, "
+            "чистая визуальная иерархия и готовые зоны для заполнения содержимым статьи."
+        )
+        version_pill = "Версия: черновой макет"
+        language_pill = "Язык: RU"
+        status_pill = "Статус: подготовка материалов"
+        format_pill = "Формат: web-превью"
+        section_context = "Аннотация и научный контекст"
+        abstract_title = "Abstract / Аннотация"
+        abstract_text = (
+            "Здесь разместите краткое описание задачи, используемого подхода и основных результатов. "
+            "Рекомендуемая длина: 120-200 слов. Текст может быть в двух языковых версиях "
+            "(RU и EN) с акцентом на новизну и практическую значимость."
+        )
+        abstract_placeholder = "[PLACEHOLDER] Вставьте финальную аннотацию дипломной работы."
+        keywords_title = "Ключевые слова"
+        research_problem_title = "Проблема исследования"
+        research_problem_text = (
+            "Опишите, какую техническую или научную проблему решает ваша работа и почему "
+            "существующие методы недостаточны."
+        )
+        research_problem_placeholder = "[PLACEHOLDER] Добавьте формулировку научной проблемы и гипотезу."
+        section_structure = "Структура статьи"
+        intro_title = "1. Введение"
+        intro_b1 = "Мотивация и область применения"
+        intro_b2 = "Обзор смежных работ"
+        intro_b3 = "Цель и задачи исследования"
+        intro_placeholder = "[PLACEHOLDER] Кратко опишите вводную часть."
+        method_title = "2. Методология"
+        method_b1 = "Pipeline обработки данных"
+        method_b2 = "Архитектура и компоненты PavFGS"
+        method_b3 = "Оценка сложности и ресурсоёмкости"
+        method_placeholder = "[PLACEHOLDER] Добавьте метод и математическую часть."
+        results_title = "3. Эксперименты и выводы"
+        results_b1 = "Наборы данных и метрики"
+        results_b2 = "Сравнение с baseline-методами"
+        results_b3 = "Ограничения и future work"
+        results_placeholder = "[PLACEHOLDER] Вставьте результаты и обсуждение."
+        callout_label = "Комментарий для команды:"
+        callout_text = (
+            "этот экран сделан как презентационное превью. Подготовьте финальные фрагменты текста "
+            "(введение, метод, метрики, выводы), а затем замените плейсхолдеры по разделам."
+        )
+        section_interactive = "Интерактивное превью результата"
+
+    st.markdown(
+        f"""
+        <div class="paper-hero">
+            <div style="font-size: 0.88rem; opacity: 0.85; margin-bottom: 8px;">
+                PREVIEW · Diploma Project / Scientific Article Layout
+            </div>
+            <h1 class="paper-title">{hero_title}</h1>
+            <p class="paper-subtitle">{hero_subtitle}</p>
+            <div class="meta-row">
+                <span class="meta-pill">{version_pill}</span>
+                <span class="meta-pill">{language_pill}</span>
+                <span class="meta-pill">{status_pill}</span>
+                <span class="meta-pill">{format_pill}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(f'<div class="section-title">{section_context}</div>', unsafe_allow_html=True)
+    left, right = st.columns([1.7, 1.3], gap="large")
+    with left:
+        st.markdown(
+            f"""
+            <div class="paper-card">
+                <h4>{abstract_title}</h4>
+                <p>{abstract_text}</p>
+                <div class="placeholder">{abstract_placeholder}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with right:
+        st.markdown(
+            f"""
+            <div class="paper-card">
+                <h4>{keywords_title}</h4>
+                <p>Gaussian Splatting, 4D Reconstruction, Rendering, Neural Fields, Computer Vision</p>
+                <h4 style="margin-top:14px;">{research_problem_title}</h4>
+                <p>{research_problem_text}</p>
+                <div class="placeholder">{research_problem_placeholder}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(f'<div class="section-title">{section_structure}</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3, gap="large")
+    with c1:
+        st.markdown(
+            f"""
+            <div class="paper-card">
+                <h4>{intro_title}</h4>
+                <ul>
+                    <li>{intro_b1}</li>
+                    <li>{intro_b2}</li>
+                    <li>{intro_b3}</li>
+                </ul>
+                <div class="placeholder">{intro_placeholder}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f"""
+            <div class="paper-card">
+                <h4>{method_title}</h4>
+                <ul>
+                    <li>{method_b1}</li>
+                    <li>{method_b2}</li>
+                    <li>{method_b3}</li>
+                </ul>
+                <div class="placeholder">{method_placeholder}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f"""
+            <div class="paper-card">
+                <h4>{results_title}</h4>
+                <ul>
+                    <li>{results_b1}</li>
+                    <li>{results_b2}</li>
+                    <li>{results_b3}</li>
+                </ul>
+                <div class="placeholder">{results_placeholder}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        f"""
+        <div class="paper-callout">
+            <strong>{callout_label}</strong> {callout_text}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(f'<div class="section-title">{section_interactive}</div>', unsafe_allow_html=True)
     _render_brush_window()
 
 if __name__ == "__main__":
