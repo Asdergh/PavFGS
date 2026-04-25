@@ -15,9 +15,14 @@ RUN cargo install wasm-pack
 WORKDIR /brush
 COPY brush/ .
 
-# Понятная ошибка вместо «missing Cargo.toml» в подкаталоге
-RUN test -f Cargo.toml || (echo "ERROR: brush/ must be the repo root with workspace Cargo.toml (clone full ArthurBrussee/brush)." >&2; exit 1)
-RUN test -f crates/brush-app/Cargo.toml || (echo "ERROR: brush/crates/brush-app/Cargo.toml not found — incomplete brush/ (need full Rust workspace)." >&2; exit 1)
+# В build context каталог brush/ должен быть КОРНЕМ репозитория Brush (см. README: git clone … в brush/)
+RUN test -f Cargo.toml || ( \
+    echo "ERROR: в PavFGS/brush/ нет Cargo.toml — положи сюда полный клон https://github.com/ArthurBrussee/brush" >&2; \
+    echo "Содержимое сейчас (первый уровень):" >&2; ls -la >&2; \
+    echo "Поиск Cargo.toml (если пусто — файлов нет):" >&2; find . -maxdepth 3 -name Cargo.toml 2>/dev/null | head -30 >&2; \
+    exit 1)
+RUN test -f crates/brush-app/Cargo.toml || ( \
+    echo "ERROR: нет crates/brush-app/Cargo.toml — не полный воркспейс Rust." >&2; exit 1)
 
 # Собираем из корня воркспейса (как в npm script build:wasm-release)
 RUN wasm-pack build crates/brush-app --release --target bundler --out-dir brush_nextjs/pkg

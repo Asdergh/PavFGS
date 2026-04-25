@@ -36,6 +36,19 @@ test -f brush/Cargo.toml && test -f brush/crates/brush-app/Cargo.toml && echo OK
 
 Если `brush/` содержит только `brush_nextjs/` (без Rust), `wasm-pack` **не соберётся** — клонируй весь Brush (или подтяни submodule), затем пересобери образ.
 
+### Ошибка `brush/ must be the repo root with workspace Cargo.toml`
+
+На хосте в **корне PavFGS** сейчас **нет** файла `brush/Cargo.toml`. Самый прямой фикс — заменить каталог целиком:
+
+```bash
+cd ~/vkr/PavFGS
+rm -rf brush
+git clone --depth 1 https://github.com/ArthurBrussee/brush.git brush
+test -f brush/Cargo.toml && test -f brush/crates/brush-app/Cargo.toml && echo "OK, можно docker build"
+```
+
+Если у вас **свой форк** с доработками, клонируйте **его** в `brush/`, а не обрезанную копию. После `git pull` в форке снова проверьте `test -f brush/Cargo.toml`.
+
 ## Сборка образа (Docker)
 
 Из **корня репозитория** (PavFGS):
@@ -44,7 +57,7 @@ test -f brush/Cargo.toml && test -f brush/crates/brush-app/Cargo.toml && echo OK
 docker build -f docker/Brush.web.Dockerfile -t brush-web .
 ```
 
-Сборка может занять несколько минут (Rust WASM + Next.js). Используйте [BuildKit](https://docs.docker.com/build/buildkit/) (`DOCKER_BUILDKIT=1`), если доступен — ускоряет кэш слоёв.
+Сборка может занять несколько минут (Rust WASM + Next.js). `DOCKER_BUILDKIT=1` не обязателен: если появляется *buildx component is missing*, либо установи `docker-buildx-plugin` (`apt install docker-buildx-plugin`), либо собери **без** `DOCKER_BUILDKIT=1` — обычного `docker build` достаточно.
 
 ## Вариант 1: Запуск Brush в контейнере
 
