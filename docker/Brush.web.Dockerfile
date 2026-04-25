@@ -24,8 +24,10 @@ RUN test -f Cargo.toml || ( \
 RUN test -f crates/brush-app/Cargo.toml || ( \
     echo "ERROR: нет crates/brush-app/Cargo.toml — не полный воркспейс Rust." >&2; exit 1)
 
-# Собираем из корня воркспейса (как в npm script build:wasm-release)
-RUN wasm-pack build crates/brush-app --release --target bundler --out-dir brush_nextjs/pkg
+# out-dir у wasm-pack — относительно каталога крейта; из crates/brush-app путь ../../brush_nextjs/pkg
+# (см. brush_nextjs package.json: build:wasm-release)
+RUN cd crates/brush-app && wasm-pack build . --release --target bundler --out-dir ../../brush_nextjs/pkg \
+    && test -f ../../brush_nextjs/pkg/package.json
 
 FROM node:22-bookworm-slim AS next-builder
 WORKDIR /app
