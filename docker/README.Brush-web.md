@@ -24,6 +24,18 @@ npm run dev
 
 Brush откроется на **http://localhost:3000**. В приложении Streamlit в поле «Brush URL» укажи `http://localhost:3000`. После правок в коде Rust (`brush/crates/...`) перезапусти `npm run dev` — он заново соберёт WASM и поднимет сервер. Docker для итерации не нужен.
 
+## Что должно лежать в `brush/`
+
+Нужен **полный** репозиторий [ArthurBrussee/brush](https://github.com/ArthurBrussee/brush): в корне `brush/Cargo.toml`, папка `brush/crates/brush-app/` с `Cargo.toml`, плюс `brush/brush_nextjs/`.
+
+Проверка:
+
+```bash
+test -f brush/Cargo.toml && test -f brush/crates/brush-app/Cargo.toml && echo OK
+```
+
+Если `brush/` содержит только `brush_nextjs/` (без Rust), `wasm-pack` **не соберётся** — клонируй весь Brush (или подтяни submodule), затем пересобери образ.
+
 ## Сборка образа (Docker)
 
 Из **корня репозитория** (PavFGS):
@@ -32,7 +44,7 @@ Brush откроется на **http://localhost:3000**. В приложении
 docker build -f docker/Brush.web.Dockerfile -t brush-web .
 ```
 
-Сборка может занять несколько минут (Rust WASM + Next.js).
+Сборка может занять несколько минут (Rust WASM + Next.js). Используйте [BuildKit](https://docs.docker.com/build/buildkit/) (`DOCKER_BUILDKIT=1`), если доступен — ускоряет кэш слоёв.
 
 ## Вариант 1: Запуск Brush в контейнере
 
