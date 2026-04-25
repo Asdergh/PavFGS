@@ -1,4 +1,5 @@
 import base64
+import json
 
 # from streamlit_stl import stl_from_text
 import os
@@ -8,62 +9,11 @@ import streamlit as st
 # from plyfile import PlyData
 
 
-st.set_page_config(layout="wide", page_title="PavFGS")
-
-st.html("""
-    <div style='
-        background: #1a1a1a;
-        padding: 50px 30px;
-        border-radius: 20px;
-        text-align: center;
-        border: 1px solid #333;
-        margin: 20px 0;
-        background-image: 
-            radial-gradient(circle at 10% 20%, rgba(255,255,255,0.05) 0%, transparent 20%),
-            radial-gradient(circle at 90% 80%, rgba(255,255,255,0.05) 0%, transparent 20%);
-    '>
-        <div style='
-            font-size: 60px;
-            margin-bottom: 10px;
-            filter: drop-shadow(0 0 10px #00d4ff);
-        '>🧬</div>
-        
-        <h1 style='
-            color: #00d4ff;
-            font-size: 56px;
-            font-weight: 800;
-            margin: 0;
-            font-family: "Arial", sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            background: linear-gradient(45deg, #00d4ff, #0099ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(0,212,255,0.5);
-        '>PAVFGS</h1>
-        
-        <p style='
-            color: #888;
-            font-size: 16px;
-            margin: 15px 0 0 0;
-            font-weight: 300;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        '>Next Generation 4D Modeling Platform</p>
-        
-        <div style='
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        '>
-            <span style='color: #00d4ff; font-size: 14px;'>⚡ Real-time</span>
-            <span style='color: #00d4ff; font-size: 14px;'>🎯 Precision</span>
-            <span style='color: #00d4ff; font-size: 14px;'>🚀 Performance</span>
-            <span style='color: #00d4ff; font-size: 14px;'>⚛️ Science</span>
-        </div>
-    </div>
-""")
+st.set_page_config(
+    layout="wide",
+    page_title="PavFGS — 4D / sEEG",
+    page_icon="🧠",
+)
 
 # def load_ply_file(ply_path):
 #     try:
@@ -873,6 +823,157 @@ def _render_brush_window():
     #     """)
 
 
+def _render_math_showcase(*, is_en: bool) -> None:
+    """
+    Пример оформления формул (KaTeX в iframe) — шаблон для роста объёма ВКР.
+    """
+    if is_en:
+        title = "Sample LaTeX block (Poisson-type PDE)"
+        sub = (
+            "Same class of elliptic problems as in the thesis when discussing FVM on the volume domain "
+            "(forward / inverse EEG context)."
+        )
+        sep = "Divergence form (conductivity σ):"
+        foot = (
+            "As the paper grows: add <code>align</code>, numbered equations, theorem/corollary "
+            "environments, and bibliography—same wrapper style."
+        )
+    else:
+        title = "Пример оформления формул (уравнение Пуассона / эллиптическая постановка)"
+        sub = (
+            "Тот же класс задач, что и при дискретизации <strong>МКО</strong> на объёмной сцене в обсуждении "
+            "прямой/обратной ЭЭГ в тексте ВКР."
+        )
+        sep = "Дивергентная форма (проводимость σ):"
+        foot = (
+            "Когда объём ВКР вырастет: сюда же — нумерация, <code>align</code>, ссылки на формулы и "
+            "библиография; визуальный стиль можно сохранить."
+        )
+
+    tex_main = (
+        r"\begin{gathered}"
+        r"\nabla^2 V(\mathbf{r}) = f(\mathbf{r}),\qquad \mathbf{r} \in \Omega \subset \mathbb{R}^3 \\[0.55em]"
+        r"V\big|_{\partial\Omega} = g"
+        r"\end{gathered}"
+    )
+    tex_div = (
+        r"\nabla \cdot \bigl( \sigma(\mathbf{r}) \nabla V(\mathbf{r}) \bigr) = S(\mathbf{r})"
+    )
+
+    safe_main = json.dumps(tex_main)
+    safe_div = json.dumps(tex_div)
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="{'en' if is_en else 'ru'}">
+    <head>
+      <meta charset="utf-8"/>
+      <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+        crossorigin="anonymous"/>
+      <style>
+        :root {{
+          --bg0: rgba(8, 14, 34, 0.97);
+          --edge: rgba(125, 152, 255, 0.35);
+          --t1: #dce8ff;
+          --t2: #9fb0d4;
+          --accent: #6ab0ff;
+        }}
+        body {{
+          margin: 0;
+          font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+          background: transparent;
+          color: var(--t2);
+        }}
+        .math-card {{
+          margin-top: 4px;
+          border-radius: 18px;
+          padding: 22px 22px 18px 22px;
+          background:
+            radial-gradient(ellipse 90% 70% at 100% 0%, rgba(80, 140, 255, 0.18), transparent 55%),
+            radial-gradient(ellipse 60% 50% at 0% 100%, rgba(0, 200, 255, 0.1), transparent 50%),
+            linear-gradient(165deg, var(--bg0) 0%, rgba(12, 22, 52, 0.95) 100%);
+          border: 1px solid var(--edge);
+          box-shadow:
+            0 16px 36px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }}
+        .math-card h3 {{
+          margin: 0 0 8px 0;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--t1);
+          letter-spacing: 0.02em;
+        }}
+        .math-card .sub {{
+          margin: 0 0 16px 0;
+          font-size: 0.86rem;
+          line-height: 1.55;
+          color: var(--t2);
+        }}
+        .k-wrap {{
+          text-align: center;
+          padding: 12px 8px;
+          border-radius: 12px;
+          background: rgba(5, 10, 28, 0.55);
+          border: 1px solid rgba(100, 130, 220, 0.2);
+        }}
+        .sep {{
+          margin: 14px 0 6px 0;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--accent);
+          text-align: center;
+          opacity: 0.95;
+        }}
+        .foot {{
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(125, 152, 255, 0.2);
+          font-size: 0.8rem;
+          line-height: 1.45;
+          color: #8a9ec4;
+        }}
+        .katex {{ font-size: 1.08em !important; }}
+        .k-wrap.second .katex {{ font-size: 0.98em !important; }}
+      </style>
+    </head>
+    <body>
+      <div class="math-card">
+        <h3>{title}</h3>
+        <p class="sub">{sub}</p>
+        <div class="k-wrap" id="k1"></div>
+        <div class="sep">{sep}</div>
+        <div class="k-wrap second" id="k2"></div>
+        <div class="foot">{foot}</div>
+      </div>
+      <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        crossorigin="anonymous"></script>
+      <script>
+        function go() {{
+          if (typeof katex === "undefined") {{
+            setTimeout(go, 30);
+            return;
+          }}
+          katex.render({safe_main}, document.getElementById("k1"), {{
+            displayMode: true,
+            throwOnError: false
+          }});
+          katex.render({safe_div}, document.getElementById("k2"), {{
+            displayMode: true,
+            throwOnError: false
+          }});
+        }}
+        go();
+      </script>
+    </body>
+    </html>
+    """
+
+    st.components.v1.html(html, height=430, scrolling=False)
+
+
 def main():
     # st.set_page_config(
     #     page_title="SuperSplat Viewer",
@@ -936,6 +1037,44 @@ def main():
         line-height: 1.65;
         max-width: 930px;
     }
+    .author-line {
+        margin-top: 12px;
+        font-size: 0.95rem;
+        color: #b8c8ec;
+        letter-spacing: 0.3px;
+    }
+    .key-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+    }
+    .key-tag {
+        font-size: 0.78rem;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(100, 140, 255, 0.12);
+        border: 1px solid rgba(140, 170, 255, 0.25);
+        color: #b5c7f5;
+    }
+    .ol-clinical {
+        margin: 0.4rem 0 0 0;
+        padding-left: 1.1rem;
+        color: var(--text-secondary);
+        font-size: 0.94rem;
+        line-height: 1.5;
+    }
+    .ol-clinical li { margin-bottom: 6px; }
+    .stack-line {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 0.93rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+    .stack-line strong { color: #d4e0ff; min-width: 7.2rem; font-weight: 600; }
     .meta-row {
         display: flex;
         flex-wrap: wrap;
@@ -995,6 +1134,7 @@ def main():
         background: rgba(13, 20, 45, 0.72);
         font-size: 0.92rem;
     }
+    .paper-prose p:last-child { margin-bottom: 0; }
     .stButton button {
         background: linear-gradient(135deg, #3765ff, #30b7ff);
         color: #ffffff;
@@ -1011,107 +1151,215 @@ def main():
     is_en = language == "EN"
 
     if is_en:
-        hero_title = "PavFGS: Spatio-Temporal Reconstruction and Visualization of 4D Scenes Based on Gaussian Splatting"
+        kicker = "Graduation project · epileptologist office + PavFGS research pipeline"
+        hero_title = "PavFGS — 4D visualization of brain activity from stereo-EEG (sEEG)"
         hero_subtitle = (
-            "A modern presentation page for a diploma project: academic structure, clean visual hierarchy, "
-            "and ready-to-fill sections for future paper content."
+            "Diploma topic: <em>Software implementation of an epileptologist’s office</em>. "
+            "The PavFGS track builds a pipeline for representative <strong>4D (dynamic 3D)</strong> models of "
+            "cortical activity from sEEG, combining <strong>TensoRF</strong>-style tensor factorization of "
+            "voxel feature maps, <strong>recurrent</strong> modeling in the frequency domain, and "
+            "<strong>3D Gaussian Splatting</strong> for interactive display — integrated below via the "
+            "<strong>Brush</strong> WebGPU viewer when run locally."
         )
-        version_pill = "Version: draft layout"
-        language_pill = "Language: EN"
-        status_pill = "Status: material preparation"
-        format_pill = "Format: web preview"
-        section_context = "Abstract and Research Context"
+        author_line = "Ramzan Khatсiev · Stepan Ershov · Egor Skvortsov · April 2026"
+        version_pill = "Diploma / VKR"
+        language_pill = "EN"
+        status_pill = "sEEG · neurology"
+        format_pill = "Web + WebGPU (Brush)"
+        section_context = "Abstract and research context"
         abstract_title = "Abstract"
-        abstract_text = (
-            "Provide a concise description of the research problem, methodology, and key findings here. "
-            "Recommended length: 120-200 words."
-        )
-        abstract_placeholder = "[PLACEHOLDER] Insert the final abstract of the diploma project."
         keywords_title = "Keywords"
-        research_problem_title = "Research Problem"
-        research_problem_text = (
-            "Describe which technical or scientific challenge your project addresses and why existing "
-            "approaches are not sufficient."
+        abstract_html = (
+            "<p>Modeling and visualization of high-dimensional data is central to modern medicine; "
+            "neurology and BCI research increasingly rely on joint geometric and activity maps. "
+            "Stereoelectroencephalography (sEEG) combines a metric brain scene with time-resolved activity "
+            "in electrode regions, but classical volumetric PDE solvers (e.g. finite volumes for inverse EEG) "
+            "are too heavy to pair with end-to-end deep learning. This work develops a <strong>software "
+            "environment for an epileptologist’s practice</strong> and a <strong>PavFGS</strong> pipeline: "
+            "4D activity models from sEEG using TensoRF-style decomposition, recurrent processing of "
+            "frequency-content representations, and 3D Gaussian Splatting so clinicians can "
+            "<strong>rotate, pan, and slice</strong> an interactive 3D model and navigate arbitrary "
+            "time windows with emphasis on <strong>temporal anomalies</strong> — going beyond tools limited "
+            "to flat slices and slow long-sequence review.</p>"
         )
-        research_problem_placeholder = "[PLACEHOLDER] Add the research problem statement and hypothesis."
-        section_structure = "Paper Structure"
+        keywords = (
+            "stereo-EEG, sEEG, TensoRF, 3D Gaussian Splatting, 4D reconstruction, BCI, neurology, "
+            "inverse EEG, WebGPU, Brush, epileptology"
+        )
+        research_problem_title = "Research problem"
+        research_problem_html = (
+            "<p>Spatial clinical viewers for this modality mostly offer <strong>isolated 2D slices</strong> "
+            "and struggle with <strong>long recordings</strong>. Classical field-based simulators need full "
+            "state access and mesh-scale solvers, which blocks lightweight coupling with modern neural "
+            "networks. The project asks for a <strong>differentiable, compact scene primitive</strong> and a "
+            "<strong>time model</strong> aligned with sEEG, enabling efficient training-time simulation and "
+            "real-time-quality exploration in the browser.</p>"
+        )
+        section_mid = "From sEEG workflow to PavFGS stack"
+        section_clinical = "Clinical pipeline (sEEG)"
+        clinical_html = (
+            "<p class='paper-prose' style='margin:0;'>Typical sEEG workflow (as in the thesis):</p>"
+            "<ol class='ol-clinical'>"
+            "<li>MRI to obtain a metric, cartographic head/brain map (e.g. perfusion- or contrast-based).</li>"
+            "<li>Invasive placement of depth electrodes in regions of interest.</li>"
+            "<li>Repeat imaging with electrodes in place to co-register leads with anatomy.</li>"
+            "</ol>"
+            "<p style='margin:10px 0 0 0;font-size:0.92rem;color:var(--text-secondary);'>"
+            "That separates <strong>metric geometry</strong> from <strong>dynamic activity maps</strong> — "
+            "the gap PavFGS targets at the activity / 4D side.</p>"
+        )
+        section_stack = "Technology stack (PavFGS)"
+        stack_html = (
+            "<div class='stack-line'><strong>TensoRF</strong><span>Tensor decomposition of voxel feature "
+            "grids for compact 3D–temporal fields.</span></div>"
+            "<div class='stack-line'><strong>Recurrent + freq.</strong><span>Sequence modeling with "
+            "representations in a frequency basis over sEEG.</span></div>"
+            "<div class='stack-line'><strong>3DGS</strong><span>Anisotropic Gaussians: continuity, "
+            "densification, per-primitive motion for 4D.</span></div>"
+            "<div class='stack-line'><strong>Brush</strong><span>WebGPU splat viewer; local dev unlocks a "
+            "time slider and 4D assets.</span></div>"
+        )
+        section_structure = "Thesis map"
         intro_title = "1. Introduction"
-        intro_b1 = "Motivation and application domain"
-        intro_b2 = "Related work overview"
-        intro_b3 = "Research goals and objectives"
-        intro_placeholder = "[PLACEHOLDER] Briefly describe the introduction section."
-        method_title = "2. Methodology"
-        method_b1 = "Data processing pipeline"
-        method_b2 = "PavFGS architecture and components"
-        method_b3 = "Complexity and resource analysis"
-        method_placeholder = "[PLACEHOLDER] Add methodology and mathematical details."
-        results_title = "3. Experiments and Conclusions"
-        results_b1 = "Datasets and evaluation metrics"
-        results_b2 = "Comparison with baseline methods"
-        results_b3 = "Limitations and future work"
-        results_placeholder = "[PLACEHOLDER] Insert results and discussion."
-        callout_label = "Team note:"
-        callout_text = (
-            "this page is designed as a presentation preview. Prepare final text sections "
-            "(introduction, method, metrics, conclusions), then replace placeholders."
+        intro_body = (
+            "<p>Framed by <strong>3D vision</strong> (voxels vs. point clouds), <strong>NeRF</strong>, and "
+            "<strong>3DGS</strong> as a compromise between semantic smoothness and dynamic deformations. "
+            "Connects to <strong>multimodal neuro-AI</strong>, sEEG clinical reality, and the need for a "
+            "neural-friendly volumetric front-end (section 1 of the thesis).</p>"
         )
-        section_interactive = "Interactive Result Preview"
+        method_title = "2. Methodology (outline)"
+        method_body = (
+            "<p><strong>Backbone / encoder</strong> narrative for spatial codes; <strong>3D convolutions</strong> "
+            "on volumetric blocks <em>T</em> with learnable 3D window banks (thesis §2.1). The PavFGS path "
+            "combines TensoRF factorization, recurrent frequency-domain sEEG coding, and 3DGS export for "
+            "viewing. Full derivations follow the document’s theory chapter.</p>"
+        )
+        results_title = "3. Experiments & expected outcomes"
+        results_body = (
+            "<p>Targets: <strong>resource- and time-efficient</strong> 4D models of brain activity under "
+            "sEEG monitoring, anomaly-friendly timelines, and comparison with <strong>slice-only</strong> "
+            "baselines. Quantitative tables and ablations are added as datasets and baselines are finalized "
+            "in the thesis.</p>"
+        )
+        callout_label = "Viewer:"
+        callout_text = (
+            "The embed below is <strong>Brush</strong> (4D Gaussian Splatting in the browser). The public "
+            "demo is WebGPU-only; for the <strong>time scrubber</strong> and file loads, run the local app "
+            "(see the note under the URL field)."
+        )
+        section_interactive = "Interactive preview (Brush)"
     else:
-        hero_title = "PavFGS: Пространственно-временная реконструкция и визуализация 4D-сцен на базе Gaussian Splatting"
+        kicker = "ВКР · кабинет эпилептолога + исследовательский конвейер PavFGS"
+        hero_title = "PavFGS — 4D-визуализация активности мозга по данным сЭЭГ"
         hero_subtitle = (
-            "Современная демонстрационная страница для дипломной работы: академическая структура, "
-            "чистая визуальная иерархия и готовые зоны для заполнения содержимым статьи."
+            "Тема диплома: <em>Программная реализация кабинета врача-эпилептолога</em>. "
+            "Направление PavFGS — пайплайн <strong>репрезентативных 4D (динамических 3D) моделей</strong> "
+            "распределения активности мозга по сЭЭГ: <strong>тензорная декомпозиция</strong> воксельных карт "
+            "признаков (стиль <strong>TensoRF</strong>), <strong>рекуррентная</strong> обработка сигналов в "
+            "<strong>частотной области</strong> (разложение по базису) и <strong>3D Gaussian Splatting</strong> "
+            "для интерактивного просмотра; ниже — вьювер <strong>Brush</strong> (WebGPU) при локальном запуске."
         )
-        version_pill = "Версия: черновой макет"
-        language_pill = "Язык: RU"
-        status_pill = "Статус: подготовка материалов"
-        format_pill = "Формат: web-превью"
+        author_line = "Хациев Рамзан · Ершов Степан · Скворцов Егор · май 2026"
+        version_pill = "Диплом / ВКР"
+        language_pill = "RU"
+        status_pill = "сЭЭГ · неврология"
+        format_pill = "Web + WebGPU (Brush)"
         section_context = "Аннотация и научный контекст"
-        abstract_title = "Abstract / Аннотация"
-        abstract_text = (
-            "Здесь разместите краткое описание задачи, используемого подхода и основных результатов. "
-            "Рекомендуемая длина: 120-200 слов. Текст может быть в двух языковых версиях "
-            "(RU и EN) с акцентом на новизну и практическую значимость."
-        )
-        abstract_placeholder = "[PLACEHOLDER] Вставьте финальную аннотацию дипломной работы."
+        abstract_title = "Аннотация"
         keywords_title = "Ключевые слова"
+        abstract_html = (
+            "<p>Моделирование и визуализация многомерных данных — базис современной медицины; неврология и "
+            "направление <strong>BCI</strong> (интерфейс «мозг–компьютер») опираются на сочетание "
+            "картографически точных сцен и карт <strong>физиологической активности</strong>. Для "
+            "стерео-ЭЭГ (сЭЭГ) типичен конвейер: метрическая сцена головы, инвазивные электроды, повторная "
+            "визуализация с привязкой контактов. Классические объёмные методы (МКО, уравнение "
+            "Эйлера–Пуассона для обратной ЭЭГ-проекции) <strong>ресурсоёмки</strong> и плохо стыкуются с "
+            "современным deep learning. Работа посвящена <strong>программной реализации кабинета врача-"
+            "эпилептолога</strong> и конвейеру <strong>PavFGS</strong>: генерация 4D-моделей активности по "
+            "сЭЭГ с опорой на TensoRF-подобную тензорную декомпозицию, рекуррентную обработку частотных "
+            "репрезентаций и 3DGS, чтобы врач мог работать с <strong>интерактивной 3D-моделью</strong> "
+            "(вращение, перенос, сечения) и исследовать <strong>любой интервал времени</strong> с акцентом на "
+            "<strong>темпоральные аномалии</strong> — в отличие от инструментов, ограниченных плоскими слайсами "
+            "и длинными «тормозящими» просмотрами.</p>"
+        )
+        keywords = (
+            "стерео-ЭЭГ, сЭЭГ, TensoRF, 3D Gaussian Splatting, 4D-реконструкция, BCI, неврология, "
+            "обратная проекция ЭЭГ, WebGPU, Brush, эпилептология"
+        )
         research_problem_title = "Проблема исследования"
-        research_problem_text = (
-            "Опишите, какую техническую или научную проблему решает ваша работа и почему "
-            "существующие методы недостаточны."
+        research_problem_html = (
+            "<p>Для объёмной активности мозга по сЭЭГ <strong>не хватает удобных пространственных "
+            "визуализаторов</strong>: существующие аналоги в основном дают отдельные слайсы и слабо "
+            "масштабируются на <strong>длинные ряды</strong>. Численные полевые методы требуют полного доступа к "
+            "данным и тяжело сочетаются с нейросетями. Требуется <strong>компактный дифференцируемый</strong> "
+            "каркас 3D-сцены и <strong>временная модель</strong>, согласованная с сигналом сЭЭГ, приемлемая по "
+            "ресурсам и пригодная для обучения и клинического просмотра.</p>"
         )
-        research_problem_placeholder = "[PLACEHOLDER] Добавьте формулировку научной проблемы и гипотезу."
-        section_structure = "Структура статьи"
+        section_mid = "От клинического сЭЭГ-контейнера к стеку PavFGS"
+        section_clinical = "Клинический контекст (сЭЭГ)"
+        clinical_html = (
+            "<p class='paper-prose' style='margin:0;'>В работе выделена типовая цепочка сЭЭГ:</p>"
+            "<ol class='ol-clinical'>"
+            "<li>МРТ: картографически точная сцена (в т.ч. васкулярный/оксигенационный контраст по ВКР).</li>"
+            "<li>Инвазивная установка датчиков в зоны ЦНС.</li>"
+            "<li>Повторное сканирование с электродами — наглядная привязка контактов к анатомии.</li>"
+            "</ol>"
+            "<p style='margin:10px 0 0 0;font-size:0.92rem;color:var(--text-secondary);'>"
+            "Так отделяется <strong>метрическая геометрия</strong> от <strong>динамики активности</strong>; "
+            "PavFGS фокусируется на 4D-представлении активности.</p>"
+        )
+        section_stack = "Технологический стек (PavFGS)"
+        stack_html = (
+            "<div class='stack-line'><strong>TensoRF</strong><span>Декомпозиция тензора воксельных карт "
+            "признаков — компактное 3D+время поле.</span></div>"
+            "<div class='stack-line'><strong>Рекуррент + частоты</strong><span>Обработка последовательностей "
+            "сЭЭГ в частотных репрезентациях (разложение по базису).</span></div>"
+            "<div class='stack-line'><strong>3DGS</strong><span>Анизотропные гауссианы: непрерывность сцены, "
+            "денсификация, динамика по примитивам.</span></div>"
+            "<div class='stack-line'><strong>Brush</strong><span>Веб-вьювер сплатов на WebGPU; локально — "
+            "ползунок времени и загрузка 4D.</span></div>"
+        )
+        section_structure = "Структура работы (по ВКР)"
         intro_title = "1. Введение"
-        intro_b1 = "Мотивация и область применения"
-        intro_b2 = "Обзор смежных работ"
-        intro_b3 = "Цель и задачи исследования"
-        intro_placeholder = "[PLACEHOLDER] Кратко опишите вводную часть."
-        method_title = "2. Методология"
-        method_b1 = "Pipeline обработки данных"
-        method_b2 = "Архитектура и компоненты PavFGS"
-        method_b3 = "Оценка сложности и ресурсоёмкости"
-        method_placeholder = "[PLACEHOLDER] Добавьте метод и математическую часть."
-        results_title = "3. Эксперименты и выводы"
-        results_b1 = "Наборы данных и метрики"
-        results_b2 = "Сравнение с baseline-методами"
-        results_b3 = "Ограничения и future work"
-        results_placeholder = "[PLACEHOLDER] Вставьте результаты и обсуждение."
-        callout_label = "Комментарий для команды:"
-        callout_text = (
-            "этот экран сделан как презентационное превью. Подготовьте финальные фрагменты текста "
-            "(введение, метод, метрики, выводы), а затем замените плейсхолдеры по разделам."
+        intro_body = (
+            "<p>Обоснование двух типов 3D-визуализации в медицине, роли <strong>3D Vision</strong> (воксели, "
+            "облака точек), пути <strong>NeRF → 3DGS</strong> как компромисса между сглаженностью и динамикой. "
+            "Связь с BCI, нейроинтерфейсами и клиникой сЭЭГ (раздел 1 в документе).</p>"
         )
-        section_interactive = "Интерактивное превью результата"
+        method_title = "2. Методология (по тексту ВКР)"
+        method_body = (
+            "<p>Формирование <strong>backbone</strong>-представлений и <strong>3D-свёртки</strong> на воксельных "
+            "блоках <em>T</em> с банками обучаемых окон (п. 2.1). Конвейер PavFGS: TensoRF, рекуррентный "
+            "частотный контур, 3DGS и интеграция с веб-вьюером. Подробные формулы — в PDF ВКР.</p>"
+        )
+        results_title = "3. Эксперименты и ожидаемые результаты"
+        results_body = (
+            "<p>Целевые эффекты: <strong>оптимальное по времени и ресурсам</strong> формирование моделей "
+            "активности при мониторинге сЭЭГ, работа с <strong>темпоральными аномалиями</strong>, навигация по "
+            "времени; сравнение с baseline «только слайсы». Итоговые метрики — по мере замыкания "
+            "экспериментальной части в финальной ВКР.</p>"
+        )
+        callout_label = "Просмотр:"
+        callout_text = (
+            "Ниже встроен <strong>Brush</strong> (4D Gaussian Splatting в браузере). Публичное демо — только "
+            "WebGPU; <strong>ползунок времени</strong> и загрузка файлов — в <strong>локальной</strong> "
+            "сборке (см. подсказку под полем URL)."
+        )
+        section_interactive = "Интерактивное превью (Brush)"
+
+    key_tags_html = "".join(
+        f'<span class="key-tag">{k.strip()}</span>' for k in keywords.split(",") if k.strip()
+    )
 
     st.markdown(
         f"""
         <div class="paper-hero">
-            <div style="font-size: 0.88rem; opacity: 0.85; margin-bottom: 8px;">
-                PREVIEW · Diploma Project / Scientific Article Layout
+            <div style="font-size: 0.88rem; opacity: 0.88; margin-bottom: 8px; letter-spacing: 0.04em;">
+                {kicker}
             </div>
             <h1 class="paper-title">{hero_title}</h1>
             <p class="paper-subtitle">{hero_subtitle}</p>
+            <div class="author-line">{author_line}</div>
             <div class="meta-row">
                 <span class="meta-pill">{version_pill}</span>
                 <span class="meta-pill">{language_pill}</span>
@@ -1128,10 +1376,9 @@ def main():
     with left:
         st.markdown(
             f"""
-            <div class="paper-card">
+            <div class="paper-card paper-prose">
                 <h4>{abstract_title}</h4>
-                <p>{abstract_text}</p>
-                <div class="placeholder">{abstract_placeholder}</div>
+                {abstract_html}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1141,10 +1388,32 @@ def main():
             f"""
             <div class="paper-card">
                 <h4>{keywords_title}</h4>
-                <p>Gaussian Splatting, 4D Reconstruction, Rendering, Neural Fields, Computer Vision</p>
-                <h4 style="margin-top:14px;">{research_problem_title}</h4>
-                <p>{research_problem_text}</p>
-                <div class="placeholder">{research_problem_placeholder}</div>
+                <div class="key-tags">{key_tags_html}</div>
+                <h4 style="margin-top:16px;">{research_problem_title}</h4>
+                <div class="paper-prose">{research_problem_html}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(f'<div class="section-title">{section_mid}</div>', unsafe_allow_html=True)
+    clin, tech = st.columns(2, gap="large")
+    with clin:
+        st.markdown(
+            f"""
+            <div class="paper-card paper-prose">
+                <h4>{section_clinical}</h4>
+                {clinical_html}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with tech:
+        st.markdown(
+            f"""
+            <div class="paper-card paper-prose">
+                <h4>{section_stack}</h4>
+                {stack_html}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1155,14 +1424,9 @@ def main():
     with c1:
         st.markdown(
             f"""
-            <div class="paper-card">
+            <div class="paper-card paper-prose">
                 <h4>{intro_title}</h4>
-                <ul>
-                    <li>{intro_b1}</li>
-                    <li>{intro_b2}</li>
-                    <li>{intro_b3}</li>
-                </ul>
-                <div class="placeholder">{intro_placeholder}</div>
+                {intro_body}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1170,14 +1434,9 @@ def main():
     with c2:
         st.markdown(
             f"""
-            <div class="paper-card">
+            <div class="paper-card paper-prose">
                 <h4>{method_title}</h4>
-                <ul>
-                    <li>{method_b1}</li>
-                    <li>{method_b2}</li>
-                    <li>{method_b3}</li>
-                </ul>
-                <div class="placeholder">{method_placeholder}</div>
+                {method_body}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1185,14 +1444,9 @@ def main():
     with c3:
         st.markdown(
             f"""
-            <div class="paper-card">
+            <div class="paper-card paper-prose">
                 <h4>{results_title}</h4>
-                <ul>
-                    <li>{results_b1}</li>
-                    <li>{results_b2}</li>
-                    <li>{results_b3}</li>
-                </ul>
-                <div class="placeholder">{results_placeholder}</div>
+                {results_body}
             </div>
             """,
             unsafe_allow_html=True,
@@ -1209,6 +1463,7 @@ def main():
 
     st.markdown(f'<div class="section-title">{section_interactive}</div>', unsafe_allow_html=True)
     _render_brush_window()
+    _render_math_showcase(is_en=is_en)
 
 if __name__ == "__main__":
     main()
