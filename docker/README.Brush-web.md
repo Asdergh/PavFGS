@@ -2,6 +2,57 @@
 
 Наша версия Brush лежит в `brush/` и содержит ползунок времени для анимаций. Её можно собрать в контейнере и либо запускать в Docker, либо выложить статику на свой сайт (чтобы не использовать публичное демо).
 
+## Папка `brush` со стрелочкой на GitHub = git submodule
+
+**Стрелка** в интерфейсе GitHub значит: `brush` — **не** обычная вложенная папка, а **вложенный репозиторий (submodule)**. Родитель (PavFGS) хранит только **конкретный commit** из репо Brush, плюс URL в корневом `.gitmodules` (на `origin` он может отличаться от несинхронизированного локального файла).
+
+- Обычный `git clone …PavFGS` **сам не подтянет** полное содержимое submodule, пока не выполнить:
+  ```bash
+  git submodule update --init --recursive
+  ```
+  либо клонировать сразу: `git clone --recurse-submodules …`.
+
+- `modified: brush (modified content)` в `git status` в **корне** PavFGS значит: внутри `brush/` другое состояние, чем тот commit, на который ссылается родитель. Нужны **два уровня**:
+  1. `cd brush` → `git status` → **commit** и **push** в ваш remote (форк);
+  2. в корне PavFGS: `git add brush` → `git commit` → `git push` (родитель **запоминает новый** hash).
+
+### Почему «не подтянулся мой» Brush
+
+После `git pull` / `git clone` подставляется **тот** commit, который **залит** в репо PavFGS, а `brush` указывает на URL и hash из **submodule** — чаще всего upstream, пока вы не **запушили** коммиты в **свой** репо и не **обновили** указатель в PavFGS (шаг 2–3 ниже). Локальные незалитые правки **никуда сами** не мигрируют.
+
+### Свой форк вместо публичного upstream
+
+1. Создайте на GitHub **форк** [ArthurBrussee/brush](https://github.com/ArthurBrussee/brush) (или залейте **полный** клон в свой репозиторий: в корне обязан быть `Cargo.toml` и `crates/`).
+2. В `PavFGS/brush` привяжите `origin` к форку и отправьте ветку с доработками:
+   ```bash
+   cd brush
+   git remote -v
+   # при необходимости: git remote set-url origin https://github.com/<вы>/brush.git
+   git push -u origin main
+   ```
+3. В **корне** PavFGS зафиксируйте новый commit submodule:
+   ```bash
+   cd /path/to/PavFGS
+   git add brush
+   git commit -m "chore: update brush"
+   git push
+   ```
+4. **Сервер:** `git pull` в PavFGS, затем `git submodule update --init --recursive`, потом `docker build …`
+
+Если в `.gitmodules` ещё записан `ArthurBrussee/brush`, смена на форк:
+
+```bash
+cd /path/to/PavFGS
+git config -f .gitmodules submodule.brush.url https://github.com/<вы>/brush.git
+git submodule sync
+git submodule update --init --remote brush
+git add .gitmodules brush
+git commit -m "chore: point brush submodule to fork"
+git push
+```
+
+Команда `rm -rf brush && git clone` публичного репо **ломает** привязку submodule в git — надежнее: не удалять `brush` вручную, а обновлять его через `git submodule` (или вручную клон в форк и `git add brush` с нужным commit).
+
 ## Локальный запуск (без Docker) — для разработки
 
 Чтобы **не пересобирать образ** при каждом изменении в `brush/`, запускай Brush локально:
@@ -49,6 +100,14 @@ test -f brush/Cargo.toml && test -f brush/crates/brush-app/Cargo.toml && echo "O
 
 Если у вас **свой форк** с доработками, клонируйте **его** в `brush/`, а не обрезанную копию. После `git pull` в форке снова проверьте `test -f brush/Cargo.toml`.
 
+### Публичный клон затёр локальные правки
+
+Команда `rm -rf brush && git clone … ArthurBrussee/brush` подменяет каталог **целиком**. Восстановление:
+
+- если доработки были **в коммитах** на другой машине / в форке — `git clone <url-вашего-репо> brush` или залейте ветку на GitHub и стяните её;
+- если правки были **только локально и без бэкапа** — откат только из резервной копии или из истории IDE/сервера;
+- дальше держите **полный** репозиторий Brush (как у upstream) и свои изменения в **ветке** или **форке**, чтобы `docker build` всегда видел `Cargo.toml` + `crates/` + ваши правки.
+
 ## Сборка образа (Docker)
 
 Из **корня репозитория** (PavFGS):
@@ -59,14 +118,26 @@ docker build -f docker/Brush.web.Dockerfile -t brush-web .
 
 Сборка может занять несколько минут (Rust WASM + Next.js). `DOCKER_BUILDKIT=1` не обязателен: если появляется *buildx component is missing*, либо установи `docker-buildx-plugin` (`apt install docker-buildx-plugin`), либо собери **без** `DOCKER_BUILDKIT=1` — обычного `docker build` достаточно.
 
+**Образ сам по себе контейнер не запускает.** После `Successfully tagged brush-web:latest` нужно явно стартовать:
+
+```bash
+docker rm -f brush-web 2>/dev/null   # если имя уже занято старым контейнером
+docker run -d --name brush-web --restart unless-stopped -p 127.0.0.1:8080:80 brush-web
+docker ps   # должен появиться brush-web
+```
+
+Проверка: `curl -sI http://127.0.0.1:8080 | head -1` — ожидается `200` или `301/302`.
+
 ## Вариант 1: Запуск Brush в контейнере
 
 ```bash
-docker run -p 8080:80 brush-web
+docker run -d --name brush-web --restart unless-stopped -p 127.0.0.1:8080:80 brush-web
 ```
 
-Открой в браузере: **http://localhost:8080**  
-В приложении в поле «Brush URL» укажи: `http://localhost:8080`
+Для доступа с другой машины открой порт на интерфейсе, например `-p 8080:80` (без `127.0.0.1:`) и настрой firewall.
+
+Открой в браузере: **http://<сервер>:8080**  
+В Streamlit в поле «Brush URL» укажи тот же URL (или задай `PAVFGS_BRUSH_URL`).
 
 ## Вариант 2: Скопировать статику на свой сайт
 
