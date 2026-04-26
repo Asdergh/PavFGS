@@ -5,4 +5,5 @@
 	path = src/submodules/diff_gaussian_rasterization
 	url = https://github.com/graphdeco-inria/diff-gaussian-rasterization.git
 [submodule "brush"]
+	path = brush
 	url = https://github.com/StepanErshov/brush.git
