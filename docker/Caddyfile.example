@@ -1,0 +1,26 @@
+# Скопируй в /etc/caddy/Caddyfile на сервер, подставь реальные имена.
+# DNS: A-записи на IP VPS; порты 80/443 открыты.
+#
+#   pavfgs.…  → Streamlit (main_page.py)   @ 127.0.0.1:8501
+#   brush.…  → Docker brush-web            @ 127.0.0.1:8080
+#
+# Streamlit: PAVFGS_BRUSH_URL="https://brush.ваш-домен.ru"
+#   streamlit run src/interface/main_page.py --server.address 127.0.0.1 --server.port 8501
+
+# --- главный сайт (PavFGS / Streamlit) ---
+pavfgs.example.com {
+	reverse_proxy 127.0.0.1:8501
+	encode gzip
+}
+
+# --- iframe / WebGPU (Brush) ---
+brush.example.com {
+	reverse_proxy 127.0.0.1:8080
+	encode gzip
+}
+
+# Вариант: сайт сразу на корне example.com (замени первый блок, отключи pavfgs)
+# example.com {
+# 	reverse_proxy 127.0.0.1:8501
+# 	encode gzip
+# }

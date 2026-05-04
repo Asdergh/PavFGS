@@ -168,3 +168,7 @@ streamlit run src/interface/main_page.py
 ```
 
 В коде можно использовать `os.environ.get("PAVFGS_BRUSH_URL", BRUSH_VIEWER_URL)` как значение по умолчанию для поля Brush URL.
+
+## Домен + HTTPS (WebGPU, «по красоте»)
+
+**Основной сайт** — Streamlit [`src/interface/main_page.py`](../src/interface/main_page.py) на своём хосте (порт 8501 за reverse proxy); **Brush** — отдельный поддомен. Подробно: **[reverse-proxy-https.md](reverse-proxy-https.md)**, пример Caddy: **[Caddyfile.example](Caddyfile.example)**.

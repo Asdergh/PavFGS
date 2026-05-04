@@ -14,5 +14,4 @@ __pycache__/
 
 src/interface/sogs/
 src/interface/splat/
-# вложенные клоны / черновые вьюверы — не в основном репо (без .git внутри при необходимости)
 src/interface/supersplat/

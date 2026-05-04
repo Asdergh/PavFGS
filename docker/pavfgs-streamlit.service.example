@@ -1,0 +1,21 @@
+[Unit]
+Description=PavFGS Streamlit (main_page.py behind nginx)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/vkr/PavFGS
+
+# URL поддомена Brush (iframe + WebGPU); при смене домена правь здесь или через drop-in.
+Environment=PAVFGS_BRUSH_URL=https://brush.pavfgs.ru
+
+ExecStart=/home/ubuntu/vkr/PavFGS/.venv/bin/streamlit run src/interface/main_page.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --browser.gatherUsageStats false
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
