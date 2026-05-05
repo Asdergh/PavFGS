@@ -11,7 +11,7 @@ import streamlit as st
 
 st.set_page_config(
     layout="wide",
-    page_title="PavFGS — 4D / sEEG",
+    page_title="NeCF — 4D / sEEG",
     page_icon="🧠",
 )
 
@@ -39,7 +39,7 @@ st.set_page_config(
 
 # def create_viewer_html(ply_file_path=None):
 
-#     with open('C:\\projects\\python\\PavFGS\\src\\interface\\splat\\main.js', 'r', encoding='utf-8') as f:
+#     with open('C:\\projects\\python\\NeCF\\src\\interface\\splat\\main.js', 'r', encoding='utf-8') as f:
 #         main_js = f.read()
 
 #     html_template = f"""
@@ -1151,11 +1151,11 @@ def main():
     is_en = language == "EN"
 
     if is_en:
-        kicker = "Graduation project · epileptologist office + PavFGS research pipeline"
-        hero_title = "PavFGS — 4D visualization of brain activity from stereo-EEG (sEEG)"
+        kicker = "Graduation project · epileptologist office + NeCF research pipeline"
+        hero_title = "NeCF — 4D visualization of brain activity from stereo-EEG (sEEG)"
         hero_subtitle = (
             "Diploma topic: <em>Software implementation of an epileptologist’s office</em>. "
-            "The PavFGS track builds a pipeline for representative <strong>4D (dynamic 3D)</strong> models of "
+            "The NeCF track builds a pipeline for representative <strong>4D (dynamic 3D)</strong> models of "
             "cortical activity from sEEG, combining <strong>TensoRF</strong>-style tensor factorization of "
             "voxel feature maps, <strong>recurrent</strong> modeling in the frequency domain, and "
             "<strong>3D Gaussian Splatting</strong> for interactive display — integrated below via the "
@@ -1175,7 +1175,7 @@ def main():
             "Stereoelectroencephalography (sEEG) combines a metric brain scene with time-resolved activity "
             "in electrode regions, but classical volumetric PDE solvers (e.g. finite volumes for inverse EEG) "
             "are too heavy to pair with end-to-end deep learning. This work develops a <strong>software "
-            "environment for an epileptologist’s practice</strong> and a <strong>PavFGS</strong> pipeline: "
+            "environment for an epileptologist’s practice</strong> and a <strong>NeCF</strong> pipeline: "
             "4D activity models from sEEG using TensoRF-style decomposition, recurrent processing of "
             "frequency-content representations, and 3D Gaussian Splatting so clinicians can "
             "<strong>rotate, pan, and slice</strong> an interactive 3D model and navigate arbitrary "
@@ -1195,7 +1195,7 @@ def main():
             "<strong>time model</strong> aligned with sEEG, enabling efficient training-time simulation and "
             "real-time-quality exploration in the browser.</p>"
         )
-        section_mid = "From sEEG workflow to PavFGS stack"
+        section_mid = "From sEEG workflow to NeCF stack"
         section_clinical = "Clinical pipeline (sEEG)"
         clinical_html = (
             "<p class='paper-prose' style='margin:0;'>Typical sEEG workflow (as in the thesis):</p>"
@@ -1206,9 +1206,9 @@ def main():
             "</ol>"
             "<p style='margin:10px 0 0 0;font-size:0.92rem;color:var(--text-secondary);'>"
             "That separates <strong>metric geometry</strong> from <strong>dynamic activity maps</strong> — "
-            "the gap PavFGS targets at the activity / 4D side.</p>"
+            "the gap NeCF targets at the activity / 4D side.</p>"
         )
-        section_stack = "Technology stack (PavFGS)"
+        section_stack = "Technology stack (NeCF)"
         stack_html = (
             "<div class='stack-line'><strong>TensoRF</strong><span>Tensor decomposition of voxel feature "
             "grids for compact 3D–temporal fields.</span></div>"
@@ -1230,7 +1230,7 @@ def main():
         method_title = "2. Methodology (outline)"
         method_body = (
             "<p><strong>Backbone / encoder</strong> narrative for spatial codes; <strong>3D convolutions</strong> "
-            "on volumetric blocks <em>T</em> with learnable 3D window banks (thesis §2.1). The PavFGS path "
+            "on volumetric blocks <em>T</em> with learnable 3D window banks (thesis §2.1). The NeCF path "
             "combines TensoRF factorization, recurrent frequency-domain sEEG coding, and 3DGS export for "
             "viewing. Full derivations follow the document’s theory chapter.</p>"
         )
@@ -1249,11 +1249,11 @@ def main():
         )
         section_interactive = "Interactive preview (Brush)"
     else:
-        kicker = "ВКР · кабинет эпилептолога + исследовательский конвейер PavFGS"
-        hero_title = "PavFGS — 4D-визуализация активности мозга по данным сЭЭГ"
+        kicker = "ВКР · кабинет эпилептолога + исследовательский конвейер NeCF"
+        hero_title = "NeCF — 4D-визуализация активности мозга по данным сЭЭГ"
         hero_subtitle = (
             "Тема диплома: <em>Программная реализация кабинета врача-эпилептолога</em>. "
-            "Направление PavFGS — пайплайн <strong>репрезентативных 4D (динамических 3D) моделей</strong> "
+            "Направление NeCF — пайплайн <strong>репрезентативных 4D (динамических 3D) моделей</strong> "
             "распределения активности мозга по сЭЭГ: <strong>тензорная декомпозиция</strong> воксельных карт "
             "признаков (стиль <strong>TensoRF</strong>), <strong>рекуррентная</strong> обработка сигналов в "
             "<strong>частотной области</strong> (разложение по базису) и <strong>3D Gaussian Splatting</strong> "
@@ -1275,7 +1275,7 @@ def main():
             "визуализация с привязкой контактов. Классические объёмные методы (МКО, уравнение "
             "Эйлера–Пуассона для обратной ЭЭГ-проекции) <strong>ресурсоёмки</strong> и плохо стыкуются с "
             "современным deep learning. Работа посвящена <strong>программной реализации кабинета врача-"
-            "эпилептолога</strong> и конвейеру <strong>PavFGS</strong>: генерация 4D-моделей активности по "
+            "эпилептолога</strong> и конвейеру <strong>NeCF</strong>: генерация 4D-моделей активности по "
             "сЭЭГ с опорой на TensoRF-подобную тензорную декомпозицию, рекуррентную обработку частотных "
             "репрезентаций и 3DGS, чтобы врач мог работать с <strong>интерактивной 3D-моделью</strong> "
             "(вращение, перенос, сечения) и исследовать <strong>любой интервал времени</strong> с акцентом на "
@@ -1295,7 +1295,7 @@ def main():
             "каркас 3D-сцены и <strong>временная модель</strong>, согласованная с сигналом сЭЭГ, приемлемая по "
             "ресурсам и пригодная для обучения и клинического просмотра.</p>"
         )
-        section_mid = "От клинического сЭЭГ-контейнера к стеку PavFGS"
+        section_mid = "От клинического сЭЭГ-контейнера к стеку NeCF"
         section_clinical = "Клинический контекст (сЭЭГ)"
         clinical_html = (
             "<p class='paper-prose' style='margin:0;'>В работе выделена типовая цепочка сЭЭГ:</p>"
@@ -1306,9 +1306,9 @@ def main():
             "</ol>"
             "<p style='margin:10px 0 0 0;font-size:0.92rem;color:var(--text-secondary);'>"
             "Так отделяется <strong>метрическая геометрия</strong> от <strong>динамики активности</strong>; "
-            "PavFGS фокусируется на 4D-представлении активности.</p>"
+            "NeCF фокусируется на 4D-представлении активности.</p>"
         )
-        section_stack = "Технологический стек (PavFGS)"
+        section_stack = "Технологический стек (NeCF)"
         stack_html = (
             "<div class='stack-line'><strong>TensoRF</strong><span>Декомпозиция тензора воксельных карт "
             "признаков — компактное 3D+время поле.</span></div>"
@@ -1329,7 +1329,7 @@ def main():
         method_title = "2. Методология (по тексту ВКР)"
         method_body = (
             "<p>Формирование <strong>backbone</strong>-представлений и <strong>3D-свёртки</strong> на воксельных "
-            "блоках <em>T</em> с банками обучаемых окон (п. 2.1). Конвейер PavFGS: TensoRF, рекуррентный "
+            "блоках <em>T</em> с банками обучаемых окон (п. 2.1). Конвейер NeCF: TensoRF, рекуррентный "
             "частотный контур, 3DGS и интеграция с веб-вьюером. Подробные формулы — в PDF ВКР.</p>"
         )
         results_title = "3. Эксперименты и ожидаемые результаты"
@@ -1468,7 +1468,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# GLB_PATH = r"C:\projects\python\PavFGS\src\interface\creepy_scarecrow__horror_stylized.glb"
+# GLB_PATH = r"C:\projects\python\NeCF\src\interface\creepy_scarecrow__horror_stylized.glb"
 
 # if not os.path.exists(GLB_PATH):
 #     st.error(f"❌ Файл не найден: {GLB_PATH}")
