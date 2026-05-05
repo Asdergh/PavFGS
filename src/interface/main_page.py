@@ -798,11 +798,12 @@ def _render_brush_window():
     )
     url = brush_url.strip() or BRUSH_VIEWER_URL
     if not url.strip().lower().startswith("http://localhost"):
-        st.info(
-            "**Ползунок времени** и загрузка файлов по URL работают только в **локальной** сборке Brush. "
-            "Сейчас открыт демо — ползунка там нет. Чтобы увидеть ползунок: в терминале выполни "
-            "`cd brush/brush_nextjs && npm run build:wasm-dev && npm run dev`, затем укажи URL **http://localhost:3000**."
-        )
+        # st.info(
+        #     "**Ползунок времени** и загрузка файлов по URL работают только в **локальной** сборке Brush. "
+        #     "Сейчас открыт демо — ползунка там нет. Чтобы увидеть ползунок: в терминале выполни "
+        #     "`cd brush/brush_nextjs && npm run build:wasm-dev && npm run dev`, затем укажи URL **http://localhost:3000**."
+        # )
+        x = 0
     iframe_html = f"""
     <iframe
         src="{url}"
